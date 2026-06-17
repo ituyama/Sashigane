@@ -1,0 +1,595 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sashigane</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- App Shell -->
+  <div class="app-container">
+    
+    <!-- Top Control Bar (Slim Native Header) -->
+    <header class="control-bar">
+      <div class="control-bar-left">
+        <!-- MacOS Traffic Lights Spacer -->
+        <div class="window-controls-spacer"></div>
+
+        <!-- Navigation & Address Input -->
+        <div class="nav-group">
+          <div class="history-controls">
+          <button id="btn-back" title="戻る" class="icon-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m15 18-6-6 6-6"/></svg>
+          </button>
+          <button id="btn-forward" title="進む" class="icon-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m9 18 6-6-6-6"/></svg>
+          </button>
+          <button id="btn-reload" title="再読み込み" class="icon-button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.72 2.78L21 8M21 3v5h-5"/></svg>
+          </button>
+        </div>
+
+        <form id="url-form" class="url-input-container">
+          <img id="url-favicon" class="url-favicon" alt="" width="14" height="14" decoding="async" draggable="false" hidden>
+          <svg class="url-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <input type="text" id="url-input" list="url-history" inputmode="url" autocomplete="url" spellcheck="false" placeholder="URL" required value="https://example.com">
+          <datalist id="url-history"></datalist>
+        </form>
+        </div>
+      </div>
+
+      <!-- Compact Tool Controls -->
+      <div class="global-controls">
+        <!-- Sync Status -->
+        <button id="btn-toggle-sync" class="control-button active" title="インタラクション同期 ON/OFF">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
+          </svg>
+        </button>
+
+        <!-- CSS Outline -->
+        <button id="btn-toggle-outline" class="control-button" title="CSSアウトラインの表示切り替え">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+          </svg>
+        </button>
+
+        <!-- Screen Capture -->
+        <button id="btn-screenshot-all" class="control-button hover-accent" title="全ビューポート一括撮影">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/>
+          </svg>
+        </button>
+
+        <!-- Workspace Save / Load -->
+        <button id="btn-save-workspace" class="control-button" title="ワークスペースを保存">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+        </button>
+        <button id="btn-load-workspace" class="control-button" title="ワークスペースを読み込み">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+        </button>
+      </div>
+
+      <div class="control-bar-center">
+        <span class="app-title">Sashigane</span>
+      </div>
+
+      <!-- Toggle Panel -->
+      <div class="viewport-controls">
+        <button id="btn-toggle-theme" type="button" class="icon-button border-button" title="ダークモードに切り替え (⌘⇧L)" aria-pressed="true">
+          <svg class="theme-icon-dark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg class="theme-icon-light" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="display:none;"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+
+        <button id="btn-shortcuts" class="icon-button border-button" title="ショートカット (?)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/></svg>
+        </button>
+
+        <button id="btn-toggle-left-panel" class="icon-button border-button active" title="左パネル表示/非表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/></svg>
+        </button>
+
+        <button id="btn-toggle-sidebar" class="sidebar-toggle-button active" title="サイドパネル表示/非表示">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <!-- Browser tabs (Chrome-style) -->
+    <div class="browser-tabs-bar">
+      <div id="browser-tabs" class="browser-tabs" role="tablist"></div>
+      <button id="btn-new-tab" class="browser-tab-new" title="新しいタブ">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+      </button>
+    </div>
+
+    <!-- Main Content Workspace (Split Layout) -->
+    <div class="main-workspace">
+
+      <!-- Left Panel — Pages & Layers (Figma-style) -->
+      <aside id="left-panel" class="left-panel">
+        <div class="left-panel-header">
+          <div class="left-panel-brand">
+            <span class="left-panel-title">Layers</span>
+            <span id="left-panel-subtitle" class="left-panel-subtitle">レスポンシブ検証</span>
+          </div>
+        </div>
+        <div id="left-panel-body" class="left-panel-body">
+          <section class="left-section layers-section left-layers-section">
+            <div class="layers-header">
+              <h3>Frames</h3>
+              <span id="layers-count" class="layers-count">0</span>
+            </div>
+            <ul id="layers-list" class="layers-list" aria-label="フレーム一覧"></ul>
+          </section>
+          <div
+            id="left-panel-split-handle"
+            class="left-panel-split-handle"
+            role="separator"
+            aria-orientation="horizontal"
+            aria-label="Frames と Inspect の高さを調整"
+            aria-valuemin="22"
+            aria-valuemax="78"
+            tabindex="0"
+          ></div>
+          <section class="left-section inspector-section">
+            <div class="inspector-header">
+              <h3>Inspect</h3>
+              <div class="inspector-toolbar" role="toolbar" aria-label="インスペクターツール">
+                <button type="button" id="btn-inspect-pick" class="inspector-tool-btn" title="要素をピック (I)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+                </button>
+                <button type="button" id="btn-inspect-outline" class="inspector-tool-btn" title="全要素アウトライン">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
+                </button>
+                <button type="button" id="btn-inspect-copy" class="inspector-tool-btn" title="セレクタをコピー" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                </button>
+                <button type="button" id="btn-inspect-copy-css" class="inspector-tool-btn" title="CSSルールをコピー" disabled>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                </button>
+                <button type="button" id="btn-inspect-devtools" class="inspector-tool-btn" title="Chromium DevTools">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-4 4-4-4"/><path d="m11 20-4-4 4-4"/><path d="m15 4-4 12"/></svg>
+                </button>
+              </div>
+            </div>
+            <div id="inspector-empty" class="inspector-empty">
+              <div class="inspector-empty-visual" aria-hidden="true">
+                <span class="inspector-empty-ring"></span>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+              </div>
+              <p class="inspector-empty-title">要素を選択</p>
+              <p class="inspector-empty-desc">フレームを選び、DOMツリーから探すか <kbd>I</kbd> でピック</p>
+              <ul class="inspector-tips">
+                <li><strong>Design</strong> — ボックスタブで余白・サイズを視覚確認</li>
+                <li><strong>Dev</strong> — スタイル行クリックで CSS をコピー</li>
+              </ul>
+            </div>
+            <div id="inspector-body" class="inspector-body" hidden>
+              <div id="inspector-summary" class="inspector-summary"></div>
+              <div id="inspector-breadcrumb" class="inspector-breadcrumb"></div>
+              <div class="inspector-tabs" role="tablist">
+                <button type="button" class="inspector-tab active" data-inspector-tab="styles" role="tab">CSS</button>
+                <button type="button" class="inspector-tab" data-inspector-tab="box" role="tab">Box</button>
+                <button type="button" class="inspector-tab" data-inspector-tab="attrs" role="tab">HTML</button>
+                <button type="button" class="inspector-tab" data-inspector-tab="console" role="tab">Console</button>
+              </div>
+              <div class="inspector-tab-panels">
+                <div id="inspector-tab-styles" class="inspector-tab-pane active" role="tabpanel"></div>
+                <div id="inspector-tab-box" class="inspector-tab-pane" role="tabpanel"></div>
+                <div id="inspector-tab-attrs" class="inspector-tab-pane" role="tabpanel"></div>
+                <div id="inspector-tab-console" class="inspector-tab-pane" role="tabpanel"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </aside>
+
+      <div class="workspace-column">
+        <!-- Viewports Sandbox Area -->
+        <main id="workspace-grid" class="workspace-grid">
+        <div id="browser-tab-panels" class="browser-tab-panels">
+          <!-- Browser tab panels populated by renderer.js -->
+        </div>
+        <div class="canvas-footer">
+          <div class="breakpoint-ruler-container canvas-footer-ruler">
+            <div class="ruler-label">Breakpoints</div>
+            <div id="breakpoint-ruler" class="breakpoint-ruler">
+              <div class="ruler-helper-text">No queries detected</div>
+            </div>
+          </div>
+          <div class="canvas-toolbar">
+            <div class="tool-widget" role="toolbar" aria-label="キャンバスツール">
+              <button id="btn-tool-select" type="button" class="tool-btn active" data-tool="select" title="移動ツール (V)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+              </button>
+              <button id="btn-tool-hand" type="button" class="tool-btn" data-tool="hand" title="ハンドツール (H)">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 11V6a2 2 0 1 0-4 0v5"/><path d="M14 10V4a2 2 0 1 0-4 0v6"/><path d="M10 10.5V6a2 2 0 1 0-4 0v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2a8 8 0 0 1-8-8v-6a2 2 0 1 1 4 0"/></svg>
+              </button>
+              <div class="tool-divider" aria-hidden="true"></div>
+              <div class="add-viewport-wrap">
+                <button id="btn-add-viewport" type="button" class="tool-btn tool-btn-plus" title="フレームを追加" aria-expanded="false" aria-haspopup="menu">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                </button>
+                <div id="add-viewport-menu" class="viewport-menu" role="menu" hidden></div>
+              </div>
+            </div>
+            <div class="zoom-widget">
+              <button id="btn-zoom-out" class="zoom-btn" title="ズームアウト">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" x2="19" y1="12" y2="12"/></svg>
+              </button>
+              <span id="zoom-value" class="zoom-label">100%</span>
+              <button id="btn-zoom-in" class="zoom-btn" title="ズームイン">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+      </div>
+
+      <!-- Sidebar Audits & Previews -->
+      <aside id="sidebar-panel" class="sidebar-panel">
+        <div class="sidebar-layout">
+          <nav class="sidebar-rail" aria-label="パネル">
+            <button class="tab-btn rail-btn active" data-tab="tab-design" title="デザイン">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M3 9h18"/></svg>
+            </button>
+            <button class="tab-btn rail-btn" data-tab="tab-vision" title="Vision">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            </button>
+            <button class="tab-btn rail-btn" data-tab="tab-seo" title="SEO / Social">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+            </button>
+            <button class="tab-btn rail-btn" data-tab="tab-seo-audit" title="SEO 監査">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
+              <span id="seo-audit-badge" class="rail-badge" style="display:none">0</span>
+            </button>
+            <button class="tab-btn rail-btn" data-tab="tab-outline" title="Structure">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+            </button>
+            <button class="tab-btn rail-btn" data-tab="tab-console" title="Logs">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+              <span id="console-badge" class="rail-badge" style="display:none">0</span>
+            </button>
+          </nav>
+
+          <div class="sidebar-main">
+            <div class="sidebar-content">
+
+          <!-- TAB: Design / Frame Properties (Figma-style) -->
+          <div id="tab-design" class="tab-pane active">
+            <div id="props-empty" class="props-empty">
+              <p>フレームを選択</p>
+              <span>キャンバス上のフレームをクリックすると、位置とサイズを編集できます。</span>
+            </div>
+            <div id="props-form" class="props-form" hidden>
+              <div class="section-header">
+                <h3>プロパティ</h3>
+              </div>
+              <div class="prop-field prop-field-full">
+                <label for="prop-name">名前</label>
+                <input id="prop-name" type="text" class="prop-input" autocomplete="off">
+              </div>
+              <div class="prop-section-label">位置</div>
+              <div class="prop-row">
+                <div class="prop-field">
+                  <label for="prop-x">X</label>
+                  <input id="prop-x" type="number" class="prop-input" step="1">
+                </div>
+                <div class="prop-field">
+                  <label for="prop-y">Y</label>
+                  <input id="prop-y" type="number" class="prop-input" step="1">
+                </div>
+              </div>
+              <div class="prop-section-label">サイズ</div>
+              <div class="prop-row">
+                <div class="prop-field">
+                  <label for="prop-w">W</label>
+                  <input id="prop-w" type="number" class="prop-input" min="200" max="3840" step="1">
+                </div>
+                <div class="prop-field">
+                  <label for="prop-h">H</label>
+                  <input id="prop-h" type="number" class="prop-input" min="200" max="3840" step="1">
+                </div>
+              </div>
+              <div class="prop-row prop-row-actions">
+                <button type="button" id="prop-duplicate" class="prop-action-btn" title="複製 (⌘D)">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  複製
+                </button>
+                <button type="button" id="prop-orientation" class="prop-action-btn" title="縦横を入れ替え">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 5 5-5 5"/><path d="M21 8H9a4 4 0 0 0-4 4v1"/><path d="m8 21-5-5 5-5"/><path d="M3 16h12a4 4 0 0 0 4-4V11"/></svg>
+                  向きを入れ替え
+                </button>
+              </div>
+              <div class="prop-section-label">User Agent</div>
+              <div class="prop-field prop-field-full">
+                <label for="prop-ua-profile">デバイス</label>
+                <select id="prop-ua-profile" class="prop-input prop-select">
+                  <option value="desktop">Desktop（デフォルト）</option>
+                  <option value="iphone">iPhone</option>
+                  <option value="ipad">iPad</option>
+                  <option value="android">Android</option>
+                  <option value="custom">カスタム</option>
+                </select>
+                <p id="prop-ua-hint" class="prop-hint"></p>
+              </div>
+              <div id="prop-ua-custom-wrap" class="prop-field prop-field-full" hidden>
+                <label for="prop-ua">UA 文字列</label>
+                <textarea id="prop-ua" class="prop-input prop-textarea" rows="3" placeholder="カスタム User-Agent"></textarea>
+              </div>
+              <button type="button" id="prop-ua-apply" class="prop-apply-btn">UAを適用して再読み込み</button>
+            </div>
+          </div>
+          
+          <!-- TAB: Vision Simulator -->
+          <div id="tab-vision" class="tab-pane">
+            <div class="section-header">
+              <h3>Vision Simulator</h3>
+              <p>Simulate accessibility views for different vision types.</p>
+            </div>
+            <div class="vision-grid">
+              <label class="vision-card active">
+                <input type="radio" name="vision-filter" value="normal" checked>
+                <span class="vision-title">Normal</span>
+                <span class="vision-desc">Standard color vision.</span>
+              </label>
+              <label class="vision-card">
+                <input type="radio" name="vision-filter" value="protanopia">
+                <span class="vision-title">Protanopia</span>
+                <span class="vision-desc">Red color blindness.</span>
+              </label>
+              <label class="vision-card">
+                <input type="radio" name="vision-filter" value="deuteranopia">
+                <span class="vision-title">Deuteranopia</span>
+                <span class="vision-desc">Green color blindness.</span>
+              </label>
+              <label class="vision-card">
+                <input type="radio" name="vision-filter" value="tritanopia">
+                <span class="vision-title">Tritanopia</span>
+                <span class="vision-desc">Blue color blindness.</span>
+              </label>
+              <label class="vision-card">
+                <input type="radio" name="vision-filter" value="achromatopsia">
+                <span class="vision-title">Achromatopsia</span>
+                <span class="vision-desc">Full color blindness (monochrome).</span>
+              </label>
+            </div>
+          </div>
+
+          <!-- TAB: SEO / Social Previews -->
+          <div id="tab-seo" class="tab-pane">
+            <div class="section-header">
+              <h3>Metadata Previews</h3>
+              <p>Mockups of search and social shared previews.</p>
+            </div>
+            
+            <div class="seo-preview-list">
+              <!-- Google -->
+              <div class="mock-card google">
+                <div class="mock-brand">Google Search Snippet</div>
+                <div class="mock-body">
+                  <div class="google-url" id="seo-google-url">https://example.com</div>
+                  <h4 class="google-title" id="seo-google-title">Title</h4>
+                  <p class="google-desc" id="seo-google-desc">Description snippet.</p>
+                </div>
+              </div>
+
+              <!-- Facebook -->
+              <div class="mock-card facebook">
+                <div class="mock-brand">Facebook Card</div>
+                <div class="mock-body">
+                  <div class="fb-image-container">
+                    <img id="seo-fb-image" src="" alt="og:image" onerror="this.style.display='none'">
+                    <div id="seo-fb-image-placeholder" class="social-placeholder">No image defined</div>
+                  </div>
+                  <div class="fb-meta-box">
+                    <div class="fb-domain" id="seo-fb-domain">EXAMPLE.COM</div>
+                    <h4 class="fb-title" id="seo-fb-title">Title</h4>
+                    <p class="fb-desc" id="seo-fb-desc">Description.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Twitter -->
+              <div class="mock-card twitter">
+                <div class="mock-brand">Twitter / X Card</div>
+                <div class="mock-body">
+                  <div class="tw-image-container">
+                    <img id="seo-tw-image" src="" alt="twitter:image" onerror="this.style.display='none'">
+                    <div id="seo-tw-image-placeholder" class="social-placeholder">No image defined</div>
+                  </div>
+                  <div class="tw-meta-box">
+                    <div class="tw-domain" id="seo-tw-domain">example.com</div>
+                    <h4 class="tw-title" id="seo-tw-title">Title</h4>
+                    <p class="tw-desc" id="seo-tw-desc">Description.</p>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Slack -->
+              <div class="mock-card slack">
+                <div class="mock-brand">Slack Attachment</div>
+                <div class="mock-body">
+                  <div class="slack-unfurl">
+                    <div class="slack-bar"></div>
+                    <div class="slack-content">
+                      <div class="slack-domain" id="seo-slack-domain">example.com</div>
+                      <h4 class="slack-title" id="seo-slack-title">Title</h4>
+                      <p class="slack-desc" id="seo-slack-desc">Description.</p>
+                      <div class="slack-image-container">
+                        <img id="seo-slack-image" src="" alt="og:image" onerror="this.style.display='none'">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: SEO Audit Issues -->
+          <div id="tab-seo-audit" class="tab-pane">
+            <div class="section-header section-header-row">
+              <div>
+                <h3>SEO 監査</h3>
+                <p>ページの SEO 上の問題と改善提案</p>
+              </div>
+              <button type="button" id="btn-seo-audit-refresh" class="seo-audit-refresh" title="再監査">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.72 2.78L21 8M21 3v5h-5"/></svg>
+              </button>
+            </div>
+            <div id="seo-audit-summary" class="seo-audit-summary">
+              <div class="audit-empty">ページを読み込むと監査結果が表示されます</div>
+            </div>
+            <ul id="seo-audit-list" class="seo-audit-list" aria-label="SEO問題一覧"></ul>
+          </div>
+
+          <!-- TAB: Document Structure Outline & Image Audits -->
+          <div id="tab-outline" class="tab-pane">
+            <div class="outline-section">
+              <div class="section-header">
+                <h3>HTML Headings Outline</h3>
+                <p>Verify structural headings hierarchy tree.</p>
+              </div>
+              <div id="outline-tree" class="outline-tree">
+                <div class="audit-empty">No headers found yet.</div>
+              </div>
+            </div>
+
+            <div class="divider"></div>
+
+            <div class="image-audit-section">
+              <div class="section-header">
+                <h3>Images Alt Scanner</h3>
+                <p>Check descriptive alt attributes on images.</p>
+              </div>
+              <div id="image-audit-list" class="image-audit-list">
+                <div class="audit-empty">No images found yet.</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- TAB: Unified Console Logs -->
+          <div id="tab-console" class="tab-pane">
+            <div class="section-header flex-header">
+              <h3>Consolidated Console</h3>
+              <button id="btn-clear-console" class="text-button">Clear</button>
+            </div>
+            <div class="console-filter-bar">
+              <label class="checkbox-label"><input type="checkbox" id="log-filter-info" checked> Info</label>
+              <label class="checkbox-label"><input type="checkbox" id="log-filter-warn" checked> Warn</label>
+              <label class="checkbox-label"><input type="checkbox" id="log-filter-error" checked> Error</label>
+            </div>
+            <div id="console-logs-container" class="console-logs-container">
+              <div class="console-empty">No logs.</div>
+            </div>
+          </div>
+
+        </div>
+          </div>
+        </div>
+      </aside>
+
+    </div>
+
+  </div>
+
+  <!-- Notification Toasts -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- Add Viewport Modal -->
+  <div id="modal-add-viewport" class="modal-backdrop">
+    <div class="modal-card">
+      <div class="modal-header">
+        <h3>カスタムフレーム</h3>
+        <button id="modal-btn-close" class="icon-button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+        </button>
+      </div>
+      <form id="add-viewport-form" class="modal-body">
+        <div class="form-group">
+          <label for="vp-name">Name</label>
+          <input type="text" id="vp-name" required placeholder="e.g. iPhone 15">
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label for="vp-width">Width (px)</label>
+            <input type="number" id="vp-width" required min="200" max="3840" value="393">
+          </div>
+          <div class="form-group">
+            <label for="vp-height">Height (px)</label>
+            <input type="number" id="vp-height" required min="200" max="3840" value="852">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="vp-ua">User Agent（任意）</label>
+          <input type="text" id="vp-ua" placeholder="デフォルトのブラウザ設定">
+        </div>
+        <div class="modal-footer">
+          <button type="button" id="modal-btn-cancel" class="secondary-button">キャンセル</button>
+          <button type="submit" class="accent-button">追加</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Shortcuts Modal -->
+  <div id="modal-shortcuts" class="modal-backdrop">
+    <div class="modal-card modal-card-wide">
+      <div class="modal-header">
+        <h3>ショートカット</h3>
+        <button id="modal-shortcuts-close" type="button" class="icon-button" aria-label="閉じる">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
+        </button>
+      </div>
+      <div class="modal-body shortcuts-body">
+        <div class="shortcuts-grid">
+          <section class="shortcuts-section">
+            <h4>ナビゲーション</h4>
+            <dl class="shortcut-list">
+              <div><dt>⌘L</dt><dd>URLバーにフォーカス</dd></div>
+              <div><dt>⌘T</dt><dd>新しいタブ</dd></div>
+              <div><dt>⌘W</dt><dd>タブを閉じる</dd></div>
+              <div><dt>⌘⇧L</dt><dd>ダーク / ライト切り替え</dd></div>
+              <div><dt>⌘R</dt><dd>再読み込み</dd></div>
+            </dl>
+          </section>
+          <section class="shortcuts-section">
+            <h4>キャンバス</h4>
+            <dl class="shortcut-list">
+              <div><dt>V</dt><dd>移動ツール</dd></div>
+              <div><dt>H</dt><dd>ハンドツール</dd></div>
+              <div><dt>Space</dt><dd>一時ハンド（長押し）</dd></div>
+              <div><dt>⌘+スクロール</dt><dd>ズーム</dd></div>
+              <div><dt>Shift+1</dt><dd>全体にフィット</dd></div>
+              <div><dt>Shift+2</dt><dd>選択フレームにフィット</dd></div>
+              <div><dt>Shift+0</dt><dd>100%ズーム</dd></div>
+            </dl>
+          </section>
+          <section class="shortcuts-section">
+            <h4>フレーム</h4>
+            <dl class="shortcut-list">
+              <div><dt>⌘D</dt><dd>複製</dd></div>
+              <div><dt>Delete</dt><dd>削除</dd></div>
+              <div><dt>Esc</dt><dd>選択解除</dd></div>
+              <div><dt>ダブルクリック</dt><dd>ヘッダーでズーム</dd></div>
+            </dl>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

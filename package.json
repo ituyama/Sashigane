@@ -1,0 +1,21 @@
+{
+  "name": "sashigane",
+  "version": "1.0.0",
+  "description": "Sashigane - A premium developer browser designed for responsive multi-viewport testing, auditing, and visual checking.",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "keywords": [
+    "developer",
+    "browser",
+    "responsive",
+    "testing",
+    "electron"
+  ],
+  "author": "Antigravity & Yamanokazuki",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^31.0.0"
+  }
+}
