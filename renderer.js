@@ -1037,6 +1037,12 @@ function setupGlobalShortcuts() {
     } else if (e.shiftKey && e.code === 'Digit0') {
       e.preventDefault();
       zoomToPercent(100);
+    } else if (e.shiftKey && (e.key === '+' || e.key === '=' || e.code === 'Equal')) {
+      e.preventDefault();
+      stepZoomPreset(1);
+    } else if (e.shiftKey && (e.key === '-' || e.key === '_' || e.code === 'Minus')) {
+      e.preventDefault();
+      stepZoomPreset(-1);
     }
   });
 
@@ -3009,9 +3015,33 @@ const MIN_CANVAS_H = 3600;
 
 const ZOOM_MIN = 0.02;
 const ZOOM_MAX = 8;
-const ZOOM_WHEEL_SENSITIVITY = 0.0028;
-const ZOOM_BUTTON_FACTOR = 1.32;
+const FIGMA_ZOOM_PRESETS = [
+  0.02, 0.03, 0.05, 0.08, 0.10, 0.13, 0.20, 0.25, 0.33, 0.50, 0.67, 0.75,
+  0.80, 0.90, 1.00, 1.10, 1.25, 1.50, 1.75, 2.00, 2.50, 3.00, 4.00, 5.00, 6.00, 8.00,
+];
+const FIGMA_WHEEL_GAIN = 1.22;
+const FIGMA_WHEEL_EXPONENT = 0.0105;
+const FIGMA_WHEEL_DELTA_CAP = 140;
 const PAN_OVERSCROLL = 1200;
+
+function getWheelZoomFactor(deltaY) {
+  if (!deltaY) return 1;
+  const sign = Math.sign(-deltaY);
+  const magnitude = Math.min(Math.abs(deltaY), FIGMA_WHEEL_DELTA_CAP);
+  const scaledDelta = sign * Math.sqrt(magnitude) * FIGMA_WHEEL_GAIN;
+  return Math.exp(scaledDelta * FIGMA_WHEEL_EXPONENT);
+}
+
+function stepZoomPreset(direction) {
+  const current = workspaceZoom;
+  if (direction > 0) {
+    const next = FIGMA_ZOOM_PRESETS.find((preset) => preset > current + 0.0005);
+    if (next) zoomToPercent(next * 100);
+    return;
+  }
+  const prev = [...FIGMA_ZOOM_PRESETS].reverse().find((preset) => preset < current - 0.0005);
+  if (prev) zoomToPercent(prev * 100);
+}
 
 const UA_IPHONE = 'Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
 const UA_IPAD = 'Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Mobile/15E148 Safari/604.1';
@@ -3535,7 +3565,7 @@ function handleWorkspaceWheel(e) {
   const isZoomGesture = e.ctrlKey || e.metaKey;
   if (isZoomGesture) {
     e.preventDefault();
-    const factor = Math.exp(-dy * ZOOM_WHEEL_SENSITIVITY);
+    const factor = getWheelZoomFactor(dy);
     zoomAtScreenPoint(factor, e.clientX, e.clientY);
     commitCanvasTransform();
     return;
@@ -3979,13 +4009,11 @@ function setupEventListeners() {
 
   // Zoom controls
   btnZoomIn.addEventListener('click', () => {
-    zoomAtViewportCenter(ZOOM_BUTTON_FACTOR);
-    commitCanvasTransform();
+    stepZoomPreset(1);
   });
 
   btnZoomOut.addEventListener('click', () => {
-    zoomAtViewportCenter(1 / ZOOM_BUTTON_FACTOR);
-    commitCanvasTransform();
+    stepZoomPreset(-1);
   });
 
   // ── Transform-based pan (replaces overflow:auto scroll) ──────
