@@ -8,6 +8,7 @@ const urlFavicon = document.getElementById('url-favicon');
 const btnBack = document.getElementById('btn-back');
 const btnForward = document.getElementById('btn-forward');
 const btnReload = document.getElementById('btn-reload');
+const btnHome = document.getElementById('btn-home');
 
 const btnToggleSync = document.getElementById('btn-toggle-sync');
 const btnToggleOutline = document.getElementById('btn-toggle-outline');
@@ -23,7 +24,6 @@ const addViewportMenu = document.getElementById('add-viewport-menu');
 const btnToggleSidebar = document.getElementById('btn-toggle-sidebar');
 const btnToggleLeftPanel = document.getElementById('btn-toggle-left-panel');
 const leftPanel = document.getElementById('left-panel');
-const leftPanelSubtitle = document.getElementById('left-panel-subtitle');
 const leftPanelBody = document.getElementById('left-panel-body');
 const leftPanelSplitHandle = document.getElementById('left-panel-split-handle');
 const btnToggleTheme = document.getElementById('btn-toggle-theme');
@@ -34,6 +34,15 @@ const sidebarPanel = document.getElementById('sidebar-panel');
 const browserTabsEl = document.getElementById('browser-tabs');
 const browserTabPanels = document.getElementById('browser-tab-panels');
 const btnNewTab = document.getElementById('btn-new-tab');
+const homeScreen = document.getElementById('home-screen');
+const homeUrlForm = document.getElementById('home-url-form');
+const homeUrlInput = document.getElementById('home-url-input');
+const homeBtnBlank = document.getElementById('home-btn-blank');
+const homeBtnUrl = document.getElementById('home-btn-url');
+const homeBtnLoad = document.getElementById('home-btn-load');
+const homeRecentSection = document.getElementById('home-recent-section');
+const homeRecentGrid = document.getElementById('home-recent-grid');
+const homeRecentEmpty = document.getElementById('home-recent-empty');
 const breakpointRuler = document.getElementById('breakpoint-ruler');
 
 // Sidebar Tabs & Panels
@@ -163,6 +172,7 @@ const VIEWPORT_HEADER_H = 34;
 let frameDragRaf = null;
 
 let urlHistory = [];
+let faviconCache = {};
 let workspacePersistTimer = null;
 
 const domTreeByViewport = new Map();
@@ -175,10 +185,14 @@ let selectedElementInfo = null;
 let activeInspectorTab = 'styles';
 
 const WORKSPACE_STORAGE_KEY = 'sashigane-workspace-v1';
+const URL_HISTORY_KEY = 'sashigane-url-history';
+const FAVICON_CACHE_KEY = 'sashigane-favicon-cache';
 const LEFT_PANEL_SPLIT_KEY = 'sashigane-left-panel-split';
 const LEFT_PANEL_SPLIT_MIN = 0.22;
 const LEFT_PANEL_SPLIT_MAX = 0.78;
 const LEFT_PANEL_SPLIT_DEFAULT = 0.48;
+const LEFT_PANEL_LAYERS_MIN_PX = 80;
+const LEFT_PANEL_INSPECTOR_MIN_PX = 148;
 
 let leftPanelLayersRatio = LEFT_PANEL_SPLIT_DEFAULT;
 let leftPanelSplitDragging = false;
@@ -197,17 +211,209 @@ function resolveTheme(mode) {
   return mode === 'light' ? 'light' : 'dark';
 }
 
+function applyUiTip(el, tip) {
+  if (!el || !tip) return;
+  el.setAttribute('data-tip', tip);
+  if (!el.getAttribute('aria-label')) el.setAttribute('aria-label', tip);
+  el.removeAttribute('title');
+  if (el.closest('.control-bar, .browser-tabs-bar, .viewport-controls, .global-controls, .nav-group')) {
+    el.setAttribute('data-tip-pos', 'bottom');
+  } else if (el.closest('.sidebar-rail')) {
+    el.setAttribute('data-tip-pos', 'left');
+  } else if (el.closest('.canvas-footer, .canvas-toolbar')) {
+    el.setAttribute('data-tip-pos', 'top');
+  } else if (el.closest('.left-panel')) {
+    el.setAttribute('data-tip-pos', 'right');
+  }
+}
+
+function setupUiTooltips(root = document) {
+  const scope = root === document ? document : root;
+  scope.querySelectorAll('[title]').forEach((el) => {
+    if (el.hasAttribute('data-tip')) return;
+    const tip = el.getAttribute('title')?.trim();
+    if (!tip) return;
+    applyUiTip(el, tip);
+  });
+  scope.querySelectorAll('[data-tip]:not([aria-label])').forEach((el) => {
+    el.setAttribute('aria-label', el.getAttribute('data-tip'));
+  });
+}
+
+let uiTooltipEl = null;
+let uiTooltipTarget = null;
+let uiTooltipShowTimer = null;
+let uiTooltipHideTimer = null;
+
+function ensureUiTooltipEl() {
+  if (uiTooltipEl) return uiTooltipEl;
+  uiTooltipEl = document.createElement('div');
+  uiTooltipEl.id = 'ui-tooltip';
+  uiTooltipEl.className = 'ui-tooltip';
+  uiTooltipEl.setAttribute('role', 'tooltip');
+  uiTooltipEl.hidden = true;
+  document.body.appendChild(uiTooltipEl);
+  return uiTooltipEl;
+}
+
+function resolveTooltipPlacement(el) {
+  const explicit = el.getAttribute('data-tip-pos');
+  if (explicit === 'top' || explicit === 'bottom' || explicit === 'left' || explicit === 'right') {
+    return explicit;
+  }
+  if (el.closest('.control-bar, .browser-tabs-bar, .viewport-controls, .global-controls, .nav-group')) {
+    return 'bottom';
+  }
+  if (el.closest('.sidebar-rail')) {
+    return 'left';
+  }
+  if (el.closest('.left-panel')) {
+    return 'right';
+  }
+  return 'top';
+}
+
+function positionUiTooltip(el) {
+  const tip = ensureUiTooltipEl();
+  const text = el.getAttribute('data-tip');
+  if (!text) return;
+
+  tip.textContent = text;
+  tip.hidden = false;
+  tip.classList.remove('visible');
+  tip.style.left = '0';
+  tip.style.top = '0';
+
+  let placement = resolveTooltipPlacement(el);
+  const rect = el.getBoundingClientRect();
+  const gap = 8;
+  const pad = 6;
+
+  const coordsFor = (p) => {
+    const tipRect = tip.getBoundingClientRect();
+    let x;
+    let y;
+    switch (p) {
+      case 'bottom':
+        x = rect.left + rect.width / 2 - tipRect.width / 2;
+        y = rect.bottom + gap;
+        break;
+      case 'left':
+        x = rect.left - tipRect.width - gap;
+        y = rect.top + rect.height / 2 - tipRect.height / 2;
+        break;
+      case 'right':
+        x = rect.right + gap;
+        y = rect.top + rect.height / 2 - tipRect.height / 2;
+        break;
+      default:
+        x = rect.left + rect.width / 2 - tipRect.width / 2;
+        y = rect.top - tipRect.height - gap;
+    }
+    return { x, y, tipRect };
+  };
+
+  let { x, y, tipRect } = coordsFor(placement);
+
+  if (placement === 'top' && y < pad) {
+    placement = 'bottom';
+    ({ x, y, tipRect } = coordsFor(placement));
+  } else if (placement === 'bottom' && y + tipRect.height > window.innerHeight - pad) {
+    placement = 'top';
+    ({ x, y, tipRect } = coordsFor(placement));
+  } else if (placement === 'left' && x < pad) {
+    placement = 'right';
+    ({ x, y, tipRect } = coordsFor(placement));
+  } else if (placement === 'right' && x + tipRect.width > window.innerWidth - pad) {
+    placement = 'left';
+    ({ x, y, tipRect } = coordsFor(placement));
+  }
+
+  x = Math.max(pad, Math.min(x, window.innerWidth - tipRect.width - pad));
+  y = Math.max(pad, Math.min(y, window.innerHeight - tipRect.height - pad));
+
+  tip.style.left = `${Math.round(x)}px`;
+  tip.style.top = `${Math.round(y)}px`;
+  tip.dataset.placement = placement;
+  requestAnimationFrame(() => tip.classList.add('visible'));
+}
+
+function hideUiTooltip(immediate = false) {
+  clearTimeout(uiTooltipShowTimer);
+  clearTimeout(uiTooltipHideTimer);
+  const run = () => {
+    uiTooltipTarget = null;
+    const tip = ensureUiTooltipEl();
+    tip.classList.remove('visible');
+    tip.hidden = true;
+  };
+  if (immediate) run();
+  else uiTooltipHideTimer = setTimeout(run, 40);
+}
+
+function scheduleUiTooltip(el) {
+  clearTimeout(uiTooltipShowTimer);
+  clearTimeout(uiTooltipHideTimer);
+  uiTooltipShowTimer = setTimeout(() => {
+    uiTooltipTarget = el;
+    positionUiTooltip(el);
+  }, 280);
+}
+
+function initUiTooltipLayer() {
+  ensureUiTooltipEl();
+
+  document.addEventListener('pointerover', (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (!el || el === uiTooltipTarget) return;
+    hideUiTooltip(true);
+    uiTooltipTarget = el;
+    scheduleUiTooltip(el);
+  });
+
+  document.addEventListener('pointerout', (e) => {
+    if (!uiTooltipTarget) return;
+    const from = e.target.closest('[data-tip]');
+    if (!from || from !== uiTooltipTarget) return;
+    const to = e.relatedTarget;
+    if (to && uiTooltipTarget.contains(to)) return;
+    if (to?.closest?.('[data-tip]')) return;
+    hideUiTooltip();
+  });
+
+  document.addEventListener('focusin', (e) => {
+    const el = e.target.closest('[data-tip]');
+    if (!el) return;
+    hideUiTooltip(true);
+    uiTooltipTarget = el;
+    positionUiTooltip(el);
+  });
+
+  document.addEventListener('focusout', (e) => {
+    if (uiTooltipTarget && e.target.closest('[data-tip]') === uiTooltipTarget) {
+      hideUiTooltip();
+    }
+  });
+
+  window.addEventListener('scroll', () => hideUiTooltip(true), true);
+  window.addEventListener('resize', () => {
+    if (uiTooltipTarget) positionUiTooltip(uiTooltipTarget);
+  });
+}
+
 function updateThemeButton(resolved, mode) {
   if (!btnToggleTheme) return;
   const isDark = resolved === 'dark';
   btnToggleTheme.setAttribute('aria-pressed', String(isDark));
+  let tip;
   if (mode === 'system') {
-    btnToggleTheme.title = `システム設定（${isDark ? 'ダーク' : 'ライト'}）— ⌘⇧L で切替`;
+    tip = `システム設定（${isDark ? 'ダーク' : 'ライト'}）— ⌘⇧L で切替`;
   } else {
-    btnToggleTheme.title = isDark
+    tip = isDark
       ? 'ダークモード — クリックでライト (⌘⇧L)'
       : 'ライトモード — クリックでダーク (⌘⇧L)';
   }
+  applyUiTip(btnToggleTheme, tip);
 }
 
 function applyTheme(mode) {
@@ -217,6 +423,7 @@ function applyTheme(mode) {
   localStorage.setItem('sashigane-theme', mode);
   window.electronAPI?.setNativeTheme?.(mode, resolved);
   updateThemeButton(resolved, mode);
+  if (isHomeActive()) renderHomeScreen();
   return resolved;
 }
 
@@ -229,7 +436,7 @@ function toggleTheme() {
 
 function initTheme() {
   const saved = localStorage.getItem('sashigane-theme');
-  const mode = saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'system';
+  const mode = saved === 'light' || saved === 'dark' || saved === 'system' ? saved : 'light';
   applyTheme(mode);
 
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
@@ -443,8 +650,196 @@ function closeShortcutsModal() {
 
 function showWelcomeHint() {
   if (localStorage.getItem('sashigane-welcome-shown')) return;
+  if (isHomeActive()) return;
   localStorage.setItem('sashigane-welcome-shown', '1');
   showToast('デザインと実装のすき間を埋める — I で要素ピック、? でショートカット');
+}
+
+function isHomeActive() {
+  return activeBrowserTabId === null;
+}
+
+function updateHomeScreenState() {
+  const onHome = isHomeActive();
+  document.body.classList.toggle('home-active', onHome);
+  if (homeScreen) homeScreen.hidden = !onHome;
+
+  if (urlInput) {
+    urlInput.disabled = onHome;
+    urlForm?.classList.toggle('is-disabled', onHome);
+  }
+  if (btnBack) btnBack.disabled = onHome;
+  if (btnForward) btnForward.disabled = onHome;
+  if (btnReload) btnReload.disabled = onHome;
+  if (btnHome) {
+    btnHome.classList.toggle('active', onHome);
+    btnHome.setAttribute('aria-pressed', onHome ? 'true' : 'false');
+  }
+
+  if (onHome) {
+    renderHomeScreen();
+    requestAnimationFrame(() => homeUrlInput?.focus());
+  }
+}
+
+function getHostnameLabel(url) {
+  try {
+    return new URL(url).hostname.replace(/^www\./, '');
+  } catch {
+    return url;
+  }
+}
+
+function hashString(value) {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) {
+    hash = value.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return Math.abs(hash);
+}
+
+function getBoardThumbColor(url) {
+  const hues = [262, 228, 198, 168, 28, 340, 12, 290];
+  const host = getHostnameLabel(url);
+  const hue = hues[hashString(host) % hues.length];
+  const isLight = document.body.classList.contains('light-theme');
+  return isLight
+    ? `hsl(${hue} 62% 90%)`
+    : `hsl(${hue} 38% 28%)`;
+}
+
+function getRemoteFaviconUrl(url) {
+  try {
+    const host = new URL(url).hostname;
+    return `https://www.google.com/s2/favicons?domain=${encodeURIComponent(host)}&sz=128`;
+  } catch {
+    return null;
+  }
+}
+
+function loadFaviconCache() {
+  try {
+    const raw = localStorage.getItem(FAVICON_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    faviconCache = parsed && typeof parsed === 'object' ? parsed : {};
+  } catch {
+    faviconCache = {};
+  }
+}
+
+function rememberBoardMeta(url, { faviconUrl, title } = {}) {
+  const normalized = normalizeUserUrl(url);
+  if (!normalized) return;
+
+  const prev = faviconCache[normalized] || {};
+  faviconCache[normalized] = {
+    faviconUrl: faviconUrl || prev.faviconUrl || null,
+    title: title || prev.title || tabTitleFromUrl(normalized),
+  };
+  localStorage.setItem(FAVICON_CACHE_KEY, JSON.stringify(faviconCache));
+}
+
+function getBoardMeta(url) {
+  const normalized = normalizeUserUrl(url) || url;
+  const cached = faviconCache[normalized] || {};
+  return {
+    url: normalized,
+    title: cached.title || tabTitleFromUrl(normalized),
+    faviconUrl: cached.faviconUrl || getRemoteFaviconUrl(normalized),
+  };
+}
+
+function renderHomeScreen() {
+  if (!homeRecentGrid) return;
+
+  const recent = urlHistory.slice(0, 12);
+  homeRecentGrid.innerHTML = '';
+
+  if (homeRecentEmpty) {
+    homeRecentEmpty.hidden = recent.length > 0;
+  }
+
+  recent.forEach(url => {
+    const meta = getBoardMeta(url);
+    const card = document.createElement('button');
+    card.type = 'button';
+    card.className = 'home-file-card';
+    card.title = meta.url;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'home-file-thumb';
+    thumb.style.setProperty('--thumb-bg', getBoardThumbColor(meta.url));
+
+    const faviconWrap = document.createElement('span');
+    faviconWrap.className = 'home-file-favicon';
+    applyFaviconToContainer(faviconWrap, meta.faviconUrl, meta.url, {
+      imgClass: 'home-file-favicon-img',
+      fallbackClass: 'home-file-favicon-fallback',
+    });
+    thumb.appendChild(faviconWrap);
+
+    const info = document.createElement('span');
+    info.className = 'home-file-info';
+
+    const title = document.createElement('span');
+    title.className = 'home-file-title';
+    title.textContent = meta.title;
+
+    const host = document.createElement('span');
+    host.className = 'home-file-host';
+    host.textContent = getHostnameLabel(meta.url);
+
+    info.appendChild(title);
+    info.appendChild(host);
+    card.appendChild(thumb);
+    card.appendChild(info);
+    card.addEventListener('click', () => openNewBrowserTab(meta.url));
+    homeRecentGrid.appendChild(card);
+  });
+}
+
+function enterHomeScreen({ persist = true } = {}) {
+  if (activeBrowserTabId !== null) {
+    setInspectMode(false);
+    clearDomSelection();
+    saveActiveTabState();
+  }
+
+  activeBrowserTabId = null;
+  viewports = [];
+  selectedViewportId = null;
+  currentURL = '';
+  if (urlInput) urlInput.value = '';
+
+  document.querySelectorAll('.browser-tab-panel').forEach(panel => {
+    panel.classList.remove('active');
+  });
+
+  renderBrowserTabs();
+  renderLayersPanel();
+  renderPropertiesPanel();
+  renderInspectorPanel();
+  updateHomeScreenState();
+
+  if (persist) persistWorkspaceNow().catch(() => {});
+}
+
+function goHome() {
+  if (isHomeActive()) {
+    renderHomeScreen();
+    requestAnimationFrame(() => homeUrlInput?.focus());
+    return;
+  }
+  enterHomeScreen();
+}
+
+function openNewBrowserTab(url = 'https://example.com') {
+  const normalized = normalizeUserUrl(url) || url;
+  const tab = createBrowserTab(normalized);
+  browserTabs.push(tab);
+  renderBrowserTabPanel(tab);
+  setActiveBrowserTab(tab.id);
+  return tab;
 }
 
 const INSPECTOR_STYLE_GROUPS = [
@@ -498,6 +893,12 @@ function getFrameDeviceKind(vp) {
   return 'desktop';
 }
 
+const DEVICE_KIND_LABELS = {
+  mobile: 'モバイル',
+  tablet: 'タブレット',
+  desktop: 'デスクトップ',
+};
+
 function frameDeviceIcon(kind) {
   const icons = {
     mobile: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><line x1="12" x2="12.01" y1="18" y2="18"/></svg>',
@@ -535,22 +936,6 @@ function buildCssRuleSnippet(info) {
   return `${selector} {\n${lines.join('\n')}\n}`;
 }
 
-function updateLeftPanelSubtitle() {
-  if (!leftPanelSubtitle) return;
-  const tab = getActiveTab();
-  if (!tab) {
-    leftPanelSubtitle.textContent = 'レスポンシブ検証';
-    return;
-  }
-  try {
-    const host = new URL(tab.url).hostname.replace(/^www\./, '');
-    leftPanelSubtitle.textContent = host;
-    leftPanelSubtitle.title = tab.url;
-  } catch {
-    leftPanelSubtitle.textContent = tab.title || 'レスポンシブ検証';
-  }
-}
-
 function setupGlobalShortcuts() {
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
@@ -586,19 +971,27 @@ function setupGlobalShortcuts() {
       return;
     }
 
+    if (isMetaKey(e) && e.shiftKey && e.key.toLowerCase() === 'h') {
+      e.preventDefault();
+      goHome();
+      return;
+    }
+
     if (isMetaKey(e) && e.key.toLowerCase() === 'l') {
       e.preventDefault();
-      urlInput.focus();
-      urlInput.select();
+      if (isHomeActive()) {
+        homeUrlInput?.focus();
+        homeUrlInput?.select();
+      } else {
+        urlInput.focus();
+        urlInput.select();
+      }
       return;
     }
 
     if (isMetaKey(e) && e.key.toLowerCase() === 't') {
       e.preventDefault();
-      const tab = createBrowserTab(currentURL || 'https://example.com');
-      browserTabs.push(tab);
-      renderBrowserTabPanel(tab);
-      setActiveBrowserTab(tab.id);
+      openNewBrowserTab(currentURL || urlHistory[0] || 'https://example.com');
       showToast('新しいタブを開きました');
       return;
     }
@@ -1071,7 +1464,7 @@ function setupCanvasToolInteractions(workspaceGrid) {
   });
 
   if (zoomValueLabel) {
-    zoomValueLabel.title = 'クリックで100%';
+    applyUiTip(zoomValueLabel, 'クリックで100%');
     zoomValueLabel.addEventListener('click', () => zoomToPercent(100));
   }
 
@@ -1916,8 +2309,38 @@ function renderInspectorConsole() {
   inspectorTabConsole.scrollTop = inspectorTabConsole.scrollHeight;
 }
 
+function getLeftPanelSplitBounds() {
+  let min = LEFT_PANEL_SPLIT_MIN;
+  let max = LEFT_PANEL_SPLIT_MAX;
+
+  if (!leftPanelBody) return { min, max };
+
+  const bodyHeight = leftPanelBody.clientHeight;
+  const handleH = leftPanelSplitHandle?.offsetHeight ?? 14;
+  const track = bodyHeight - handleH;
+  if (track <= 0) return { min, max };
+
+  const layersMin = window.matchMedia('(max-height: 820px)').matches ? 68 : LEFT_PANEL_LAYERS_MIN_PX;
+  const inspectorMin = window.matchMedia('(max-height: 820px)').matches ? 120 : LEFT_PANEL_INSPECTOR_MIN_PX;
+
+  const minRatio = layersMin / track;
+  const maxRatio = 1 - inspectorMin / track;
+
+  if (minRatio <= maxRatio) {
+    min = Math.max(min, minRatio);
+    max = Math.min(max, maxRatio);
+  } else {
+    // 極端に低い画面では検証エリアを優先
+    const preferred = inspectorMin / (layersMin + inspectorMin);
+    min = max = Math.min(LEFT_PANEL_SPLIT_MAX, Math.max(LEFT_PANEL_SPLIT_MIN, 1 - preferred));
+  }
+
+  return { min, max };
+}
+
 function clampLeftPanelSplitRatio(ratio) {
-  return Math.min(LEFT_PANEL_SPLIT_MAX, Math.max(LEFT_PANEL_SPLIT_MIN, ratio));
+  const { min, max } = getLeftPanelSplitBounds();
+  return Math.min(max, Math.max(min, ratio));
 }
 
 function applyLeftPanelSplit(ratio) {
@@ -1927,6 +2350,11 @@ function applyLeftPanelSplit(ratio) {
   document.documentElement.style.setProperty('--left-panel-layers-grow', String(layersGrow));
   document.documentElement.style.setProperty('--left-panel-inspector-grow', String(inspectorGrow));
   leftPanelSplitHandle?.setAttribute('aria-valuenow', String(layersGrow));
+}
+
+function reflowLeftPanelSplit() {
+  if (!leftPanelBody) return;
+  applyLeftPanelSplit(leftPanelLayersRatio);
 }
 
 function loadLeftPanelSplit() {
@@ -2001,6 +2429,9 @@ function setupLeftPanelSplit() {
       persistLeftPanelSplit();
     }
   });
+
+  window.addEventListener('resize', reflowLeftPanelSplit);
+  requestAnimationFrame(reflowLeftPanelSplit);
 }
 
 function setupInspectorPanel() {
@@ -2276,6 +2707,15 @@ function renderLayersPanel() {
   if (layersCount) layersCount.textContent = String(tab.viewports.length);
   layersList.innerHTML = '';
 
+  if (tab.viewports.length === 0) {
+    layersList.innerHTML = `
+      <li class="lpane-layers-empty">
+        <p>フレームがありません</p>
+        <span>キャンバス下部の + から追加できます</span>
+      </li>`;
+    return;
+  }
+
   [...tab.viewports].reverse().forEach(vp => {
     const li = document.createElement('li');
     const frameKey = domTreeKey(tab.id, vp.id);
@@ -2308,7 +2748,7 @@ function renderLayersPanel() {
       <span class="layers-item-main">
         <span class="layers-item-name">${escapeHTML(vp.name)}</span>
         <span class="layers-item-meta">
-          <span class="layers-device-badge">${deviceKind}</span>
+          <span class="layers-device-badge">${DEVICE_KIND_LABELS[deviceKind] || deviceKind}</span>
           <span class="layers-item-size">${vp.width}×${vp.height}</span>
         </span>
       </span>
@@ -2340,6 +2780,7 @@ function renderLayersPanel() {
 }
 
 function loadUrlHistory() {
+  loadFaviconCache();
   try {
     const raw = localStorage.getItem(URL_HISTORY_KEY);
     urlHistory = raw ? JSON.parse(raw) : [];
@@ -2356,7 +2797,12 @@ function pushUrlHistory(url) {
 
   urlHistory = [normalized, ...urlHistory.filter(u => u !== normalized)].slice(0, 20);
   localStorage.setItem(URL_HISTORY_KEY, JSON.stringify(urlHistory));
+  const tab = getActiveTab();
+  if (tab && normalizeUserUrl(tab.url) === normalized) {
+    rememberBoardMeta(normalized, { faviconUrl: tab.faviconUrl, title: tab.title });
+  }
   renderUrlHistoryDatalist();
+  if (isHomeActive()) renderHomeScreen();
 }
 
 function renderUrlHistoryDatalist() {
@@ -2466,12 +2912,23 @@ async function hydrateWorkspaceOnLaunch() {
 }
 
 function rebuildWorkspaceFromData(data) {
-  if (!data?.browserTabs?.length) return false;
+  if (!data || !Array.isArray(data.browserTabs)) return false;
 
   browserTabPanels.innerHTML = '';
   browserTabs = [];
   browserTabIdCounter = data.browserTabIdCounter || 0;
   viewportIdCounter = data.viewportIdCounter || 0;
+
+  if (Array.isArray(data.urlHistory)) {
+    urlHistory = data.urlHistory;
+    localStorage.setItem(URL_HISTORY_KEY, JSON.stringify(urlHistory));
+    renderUrlHistoryDatalist();
+  }
+
+  if (data.browserTabs.length === 0) {
+    enterHomeScreen({ persist: false });
+    return true;
+  }
 
   data.browserTabs.forEach(tabState => {
     const tab = {
@@ -2802,11 +3259,13 @@ function setTabFavicon(tab, faviconUrl) {
   const next = faviconUrl || null;
   if (tab.faviconUrl === next) return;
   tab.faviconUrl = next;
+  rememberBoardMeta(tab.url, { faviconUrl: next, title: tab.title });
   renderBrowserTabs();
   syncAllViewportFavicons(tab);
   if (tab.id === activeBrowserTabId) {
     updateUrlBarFavicon(tab);
   }
+  if (isHomeActive()) renderHomeScreen();
 }
 
 function updateUrlBarFavicon(tab) {
@@ -3404,11 +3863,7 @@ async function init() {
   initTheme();
 
   if (!(await hydrateWorkspaceOnLaunch())) {
-    const firstTab = createBrowserTab('https://example.com');
-    browserTabs.push(firstTab);
-    renderBrowserTabPanel(firstTab);
-    setActiveBrowserTab(firstTab.id);
-    await persistWorkspaceNow();
+    enterHomeScreen({ persist: true });
   }
 
   updateWorkspaceZoom();
@@ -3418,9 +3873,10 @@ async function init() {
   setupPropertiesPanel();
   setupLeftPanelSplit();
   setupInspectorPanel();
+  initUiTooltipLayer();
+  setupUiTooltips();
   renderPropertiesPanel();
   renderLayersPanel();
-  updateLeftPanelSubtitle();
   showWelcomeHint();
 
   window.addEventListener('beforeunload', () => {
@@ -3459,12 +3915,33 @@ function setupEventListeners() {
     forEachWebview(wv => wv.reload());
   });
 
+  btnHome?.addEventListener('click', () => {
+    goHome();
+  });
+
   btnNewTab?.addEventListener('click', () => {
-    const tab = createBrowserTab('https://example.com');
-    browserTabs.push(tab);
-    renderBrowserTabPanel(tab);
-    setActiveBrowserTab(tab.id);
+    openNewBrowserTab(urlHistory[0] || 'https://example.com');
     showToast('新しいタブを開きました');
+  });
+
+  homeUrlForm?.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const url = normalizeUserUrl(homeUrlInput?.value);
+    if (!url) return;
+    openNewBrowserTab(url);
+  });
+
+  homeBtnBlank?.addEventListener('click', () => {
+    openNewBrowserTab('https://example.com');
+  });
+
+  homeBtnUrl?.addEventListener('click', () => {
+    homeUrlInput?.focus();
+    homeUrlInput?.select();
+  });
+
+  homeBtnLoad?.addEventListener('click', () => {
+    loadWorkspaceFromFile();
   });
 
   // Sync Toggle
@@ -3573,14 +4050,14 @@ function setupEventListeners() {
       activeVisionFilter = e.target.value;
       
       // Update radio UI cards
-      document.querySelectorAll('.vision-card').forEach(card => card.classList.remove('active'));
-      e.target.closest('.vision-card').classList.add('active');
+      document.querySelectorAll('.vision-option').forEach(card => card.classList.remove('active'));
+      e.target.closest('.vision-option').classList.add('active');
 
       // Apply vision filter to all viewports
       forEachWebview(wv => {
         wv.send('apply-vision-filter', activeVisionFilter);
       });
-      showToast(`視覚特性フィルター: ${e.target.closest('.vision-card').querySelector('.vision-title').innerText}`);
+      showToast(`視覚特性フィルター: ${e.target.closest('.vision-option').querySelector('.vision-title').innerText}`);
     });
   });
 
@@ -3668,11 +4145,11 @@ function setActiveBrowserTab(id) {
   });
 
   renderBrowserTabs();
-  updateLeftPanelSubtitle();
   updateWorkspaceTransform();
   syncAllViewportFavicons(getActiveTab());
   renderPropertiesPanel();
   renderLayersPanel();
+  updateHomeScreenState();
   persistWorkspaceNow().catch(() => {});
 }
 
@@ -3687,10 +4164,8 @@ function closeBrowserTab(tabId) {
   browserTabs = browserTabs.filter(t => t.id !== tabId);
 
   if (browserTabs.length === 0) {
-    const newTab = createBrowserTab('https://example.com');
-    browserTabs.push(newTab);
-    renderBrowserTabPanel(newTab);
-    setActiveBrowserTab(newTab.id);
+    enterHomeScreen();
+    showToast(`タブ「${tab.title}」を閉じました`);
     return;
   }
 
@@ -3735,21 +4210,21 @@ function renderBrowserTabs() {
     labelBtn.addEventListener('click', () => setActiveBrowserTab(tab.id));
     el.appendChild(labelBtn);
 
-    if (browserTabs.length > 1) {
-      const closeBtn = document.createElement('button');
-      closeBtn.type = 'button';
-      closeBtn.className = 'browser-tab-close';
-      closeBtn.title = 'タブを閉じる';
-      closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`;
-      closeBtn.addEventListener('click', (e) => {
-        e.stopPropagation();
-        closeBrowserTab(tab.id);
-      });
-      el.appendChild(closeBtn);
-    }
+    const closeBtn = document.createElement('button');
+    closeBtn.type = 'button';
+    closeBtn.className = 'browser-tab-close';
+    closeBtn.title = 'タブを閉じる';
+    closeBtn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>`;
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeBrowserTab(tab.id);
+    });
+    el.appendChild(closeBtn);
 
     browserTabsEl.appendChild(el);
   });
+
+  setupUiTooltips(browserTabsEl);
 }
 
 function renderBrowserTabPanel(tab) {
@@ -3870,7 +4345,6 @@ function navigateAll(url) {
     if (webview) webview.src = normalized;
   });
   clearDomSelection();
-  updateLeftPanelSubtitle();
 }
 
 // -------------------------------------------------------------
@@ -3898,7 +4372,7 @@ function renderViewport(vp, tab, canvas) {
       <button type="button" class="vp-btn screenshot" title="スクリーンショット">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3"/></svg>
       </button>
-      <button type="button" class="vp-btn devtools" title="DevTools">
+      <button type="button" class="vp-btn devtools" title="開発者ツール">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-4 4-4-4"/><path d="m11 20-4-4 4-4"/><path d="m15 4-4 12"/></svg>
       </button>
       <button type="button" class="vp-btn close" title="削除">
@@ -3970,6 +4444,8 @@ function renderViewport(vp, tab, canvas) {
     selectViewport(vp.id);
     zoomToSelection();
   });
+
+  setupUiTooltips(header);
 }
 
 
@@ -4026,10 +4502,8 @@ function setupWebviewHooks(webview, vp, tab) {
 
   webview.addEventListener('page-title-updated', (e) => {
     tab.title = e.title || tabTitleFromUrl(tab.url);
+    rememberBoardMeta(tab.url, { faviconUrl: tab.faviconUrl, title: tab.title });
     renderBrowserTabs();
-    if (tab.id === activeBrowserTabId) {
-      updateLeftPanelSubtitle();
-    }
   });
 
   webview.addEventListener('page-favicon-updated', (e) => {
@@ -4598,7 +5072,7 @@ function updateSidebarAudits(metadata) {
   outlineTree.innerHTML = '';
   
   if (!metadata.headers || metadata.headers.length === 0) {
-    outlineTree.innerHTML = '<div class="audit-empty">見出しタグ（h1〜h6）が見つかりません。</div>';
+    outlineTree.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">見出しタグ（h1〜h6）が見つかりません。</p></div>';
   } else {
     metadata.headers.forEach(h => {
       const item = document.createElement('div');
@@ -4616,7 +5090,7 @@ function updateSidebarAudits(metadata) {
   imageAuditList.innerHTML = '';
 
   if (!metadata.images || metadata.images.length === 0) {
-    imageAuditList.innerHTML = '<div class="audit-empty">画像要素（img）が見つかりません。</div>';
+    imageAuditList.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">画像要素（img）が見つかりません。</p></div>';
   } else {
     metadata.images.forEach(img => {
       const card = document.createElement('div');
@@ -4633,8 +5107,8 @@ function updateSidebarAudits(metadata) {
           ${img.hasAlt && !img.altEmpty
             ? `<span class="img-audit-status ok">Alt: "${escapeHTML(img.alt)}"</span>`
             : img.altEmpty
-              ? `<span class="img-audit-status missing">Alt が空です</span>`
-              : `<span class="img-audit-status missing">Alt属性なし！ (警告)</span>`}
+              ? `<span class="img-audit-status missing">alt が空です</span>`
+              : `<span class="img-audit-status missing">alt 属性なし</span>`}
         </div>
       `;
       imageAuditList.appendChild(card);

@@ -20,6 +20,15 @@
         <!-- MacOS Traffic Lights Spacer -->
         <div class="window-controls-spacer"></div>
 
+        <button id="btn-home" type="button" class="icon-button home-button" title="ホーム (⌘⇧H)" aria-pressed="false" aria-label="ホーム">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="3" width="7" height="7" rx="1.5"/>
+            <rect x="3" y="14" width="7" height="7" rx="1.5"/>
+            <rect x="14" y="14" width="7" height="7" rx="1.5"/>
+          </svg>
+        </button>
+
         <!-- Navigation & Address Input -->
         <div class="nav-group">
           <div class="history-controls">
@@ -39,7 +48,7 @@
           <svg class="url-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
           </svg>
-          <input type="text" id="url-input" list="url-history" inputmode="url" autocomplete="url" spellcheck="false" placeholder="URL" required value="https://example.com">
+          <input type="text" id="url-input" list="url-history" inputmode="url" autocomplete="url" spellcheck="false" placeholder="URLを入力" required value="https://example.com">
           <datalist id="url-history"></datalist>
         </form>
         </div>
@@ -113,79 +122,84 @@
     <!-- Main Content Workspace (Split Layout) -->
     <div class="main-workspace">
 
-      <!-- Left Panel — Pages & Layers (Figma-style) -->
+      <!-- Left Panel — Frames & Inspect -->
       <aside id="left-panel" class="left-panel">
-        <div class="left-panel-header">
-          <div class="left-panel-brand">
-            <span class="left-panel-title">Layers</span>
-            <span id="left-panel-subtitle" class="left-panel-subtitle">レスポンシブ検証</span>
-          </div>
-        </div>
         <div id="left-panel-body" class="left-panel-body">
           <section class="left-section layers-section left-layers-section">
-            <div class="layers-header">
-              <h3>Frames</h3>
-              <span id="layers-count" class="layers-count">0</span>
+            <header class="lpane-section-header">
+              <div class="lpane-section-heading">
+                <h3>フレーム</h3>
+                <span id="layers-count" class="lpane-count-badge">0</span>
+              </div>
+            </header>
+            <div class="lpane-scroll-area">
+              <ul id="layers-list" class="layers-list" aria-label="フレーム一覧"></ul>
             </div>
-            <ul id="layers-list" class="layers-list" aria-label="フレーム一覧"></ul>
           </section>
           <div
             id="left-panel-split-handle"
             class="left-panel-split-handle"
             role="separator"
             aria-orientation="horizontal"
-            aria-label="Frames と Inspect の高さを調整"
+            aria-label="フレームと検証エリアの高さを調整"
             aria-valuemin="22"
             aria-valuemax="78"
             tabindex="0"
           ></div>
           <section class="left-section inspector-section">
-            <div class="inspector-header">
-              <h3>Inspect</h3>
-              <div class="inspector-toolbar" role="toolbar" aria-label="インスペクターツール">
-                <button type="button" id="btn-inspect-pick" class="inspector-tool-btn" title="要素をピック (I)">
+            <header class="lpane-section-header lpane-section-header-row">
+              <div class="lpane-section-heading">
+                <h3>検証</h3>
+              </div>
+              <div class="lpane-toolbar" role="toolbar" aria-label="インスペクターツール">
+                <button type="button" id="btn-inspect-pick" class="lpane-tool-btn" title="要素をピック (I)">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
                 </button>
-                <button type="button" id="btn-inspect-outline" class="inspector-tool-btn" title="全要素アウトライン">
+                <button type="button" id="btn-inspect-outline" class="lpane-tool-btn" title="全要素アウトライン">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M3 15h18M9 3v18M15 3v18"/></svg>
                 </button>
-                <button type="button" id="btn-inspect-copy" class="inspector-tool-btn" title="セレクタをコピー" disabled>
+                <button type="button" id="btn-inspect-copy" class="lpane-tool-btn" title="セレクタをコピー" disabled>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
                 </button>
-                <button type="button" id="btn-inspect-copy-css" class="inspector-tool-btn" title="CSSルールをコピー" disabled>
+                <button type="button" id="btn-inspect-copy-css" class="lpane-tool-btn" title="CSSルールをコピー" disabled>
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
                 </button>
-                <button type="button" id="btn-inspect-devtools" class="inspector-tool-btn" title="Chromium DevTools">
+                <button type="button" id="btn-inspect-devtools" class="lpane-tool-btn" title="開発者ツールを開く">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21 16-4 4-4-4"/><path d="m11 20-4-4 4-4"/><path d="m15 4-4 12"/></svg>
                 </button>
               </div>
-            </div>
-            <div id="inspector-empty" class="inspector-empty">
-              <div class="inspector-empty-visual" aria-hidden="true">
-                <span class="inspector-empty-ring"></span>
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z"/><path d="m13 13 6 6"/></svg>
+            </header>
+            <div class="lpane-inspector-content">
+              <div id="inspector-empty" class="lpane-empty">
+                <span class="lpane-empty-text">要素未選択</span>
               </div>
-              <p class="inspector-empty-title">要素を選択</p>
-              <p class="inspector-empty-desc">フレームを選び、DOMツリーから探すか <kbd>I</kbd> でピック</p>
-              <ul class="inspector-tips">
-                <li><strong>Design</strong> — ボックスタブで余白・サイズを視覚確認</li>
-                <li><strong>Dev</strong> — スタイル行クリックで CSS をコピー</li>
-              </ul>
-            </div>
-            <div id="inspector-body" class="inspector-body" hidden>
-              <div id="inspector-summary" class="inspector-summary"></div>
-              <div id="inspector-breadcrumb" class="inspector-breadcrumb"></div>
-              <div class="inspector-tabs" role="tablist">
-                <button type="button" class="inspector-tab active" data-inspector-tab="styles" role="tab">CSS</button>
-                <button type="button" class="inspector-tab" data-inspector-tab="box" role="tab">Box</button>
-                <button type="button" class="inspector-tab" data-inspector-tab="attrs" role="tab">HTML</button>
-                <button type="button" class="inspector-tab" data-inspector-tab="console" role="tab">Console</button>
-              </div>
-              <div class="inspector-tab-panels">
-                <div id="inspector-tab-styles" class="inspector-tab-pane active" role="tabpanel"></div>
-                <div id="inspector-tab-box" class="inspector-tab-pane" role="tabpanel"></div>
-                <div id="inspector-tab-attrs" class="inspector-tab-pane" role="tabpanel"></div>
-                <div id="inspector-tab-console" class="inspector-tab-pane" role="tabpanel"></div>
+              <div id="inspector-body" class="inspector-body" hidden>
+                <div id="inspector-summary" class="inspector-summary"></div>
+                <div id="inspector-breadcrumb" class="inspector-breadcrumb"></div>
+                <div class="lpane-tabbar" role="tablist">
+                  <button type="button" class="inspector-tab active" data-inspector-tab="styles" role="tab" data-tip="CSS" aria-label="CSS">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6l-4 6 4 6M16 6l4 6-4 6M14 4l-4 16"/></svg>
+                    <span>CSS</span>
+                  </button>
+                  <button type="button" class="inspector-tab" data-inspector-tab="box" role="tab" data-tip="ボックスモデル" aria-label="ボックスモデル">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="5" y="5" rx="1"/><rect width="10" height="10" x="7" y="7" rx="1"/><rect width="6" height="6" x="9" y="9" rx="1"/></svg>
+                    <span>Box</span>
+                  </button>
+                  <button type="button" class="inspector-tab" data-inspector-tab="attrs" role="tab" data-tip="HTML" aria-label="HTML">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+                    <span>HTML</span>
+                  </button>
+                  <button type="button" class="inspector-tab" data-inspector-tab="console" role="tab" data-tip="コンソール" aria-label="コンソール">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+                    <span>Log</span>
+                  </button>
+                </div>
+                <div class="inspector-tab-panels">
+                  <div id="inspector-tab-styles" class="inspector-tab-pane active" role="tabpanel"></div>
+                  <div id="inspector-tab-box" class="inspector-tab-pane" role="tabpanel"></div>
+                  <div id="inspector-tab-attrs" class="inspector-tab-pane" role="tabpanel"></div>
+                  <div id="inspector-tab-console" class="inspector-tab-pane" role="tabpanel"></div>
+                </div>
               </div>
             </div>
           </section>
@@ -193,6 +207,68 @@
       </aside>
 
       <div class="workspace-column">
+        <!-- Home / Hero screen (no tabs open) -->
+        <section id="home-screen" class="home-screen" hidden aria-label="ホーム">
+          <div class="home-shell">
+            <header class="home-top">
+              <h1 class="home-brand">Sashigane</h1>
+              <form id="home-url-form" class="home-search" role="search">
+                <svg class="home-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                  <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+                </svg>
+                <input
+                  type="search"
+                  id="home-url-input"
+                  list="url-history"
+                  inputmode="url"
+                  autocomplete="url"
+                  spellcheck="false"
+                  placeholder="URLを検索または入力してボードを開く"
+                >
+              </form>
+            </header>
+
+            <section class="home-section" aria-labelledby="home-create-heading">
+              <h2 id="home-create-heading" class="home-section-title">作成</h2>
+              <div class="home-create-grid">
+                <button type="button" id="home-btn-blank" class="home-create-card">
+                  <span class="home-create-thumb home-create-thumb--new" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" x2="12" y1="5" y2="19"/><line x1="5" x2="19" y1="12" y2="12"/></svg>
+                  </span>
+                  <span class="home-create-meta">
+                    <span class="home-create-label">新しいボード</span>
+                    <span class="home-create-desc">空白のキャンバス</span>
+                  </span>
+                </button>
+                <button type="button" id="home-btn-url" class="home-create-card">
+                  <span class="home-create-thumb home-create-thumb--url" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  </span>
+                  <span class="home-create-meta">
+                    <span class="home-create-label">URLから開く</span>
+                    <span class="home-create-desc">サイトを読み込む</span>
+                  </span>
+                </button>
+                <button type="button" id="home-btn-load" class="home-create-card">
+                  <span class="home-create-thumb home-create-thumb--import" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                  </span>
+                  <span class="home-create-meta">
+                    <span class="home-create-label">インポート</span>
+                    <span class="home-create-desc">ワークスペース</span>
+                  </span>
+                </button>
+              </div>
+            </section>
+
+            <section id="home-recent-section" class="home-section" aria-labelledby="home-recent-heading">
+              <h2 id="home-recent-heading" class="home-section-title">最近</h2>
+              <div id="home-recent-grid" class="home-recent-grid"></div>
+              <p id="home-recent-empty" class="home-recent-empty" hidden>最近開いたボードはありません</p>
+            </section>
+          </div>
+        </section>
+
         <!-- Viewports Sandbox Area -->
         <main id="workspace-grid" class="workspace-grid">
         <div id="browser-tab-panels" class="browser-tab-panels">
@@ -200,7 +276,9 @@
         </div>
         <div class="canvas-footer">
           <div class="breakpoint-ruler-container canvas-footer-ruler">
-            <div class="ruler-label">Breakpoints</div>
+            <div class="ruler-label" data-tip="ブレークポイント" aria-label="ブレークポイント">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 12h12"/><path d="m14 8 4 4-4 4"/></svg>
+            </div>
             <div id="breakpoint-ruler" class="breakpoint-ruler">
               <div class="ruler-helper-text">No queries detected</div>
             </div>
@@ -242,20 +320,20 @@
             <button class="tab-btn rail-btn active" data-tab="tab-design" title="デザイン">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M9 3v18"/><path d="M3 9h18"/></svg>
             </button>
-            <button class="tab-btn rail-btn" data-tab="tab-vision" title="Vision">
+            <button class="tab-btn rail-btn" data-tab="tab-vision" title="色覚シミュレータ">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             </button>
-            <button class="tab-btn rail-btn" data-tab="tab-seo" title="SEO / Social">
+            <button class="tab-btn rail-btn" data-tab="tab-seo" title="SNSプレビュー">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
             </button>
             <button class="tab-btn rail-btn" data-tab="tab-seo-audit" title="SEO 監査">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10"/><path d="m9 12 2 2 4-4"/></svg>
               <span id="seo-audit-badge" class="rail-badge" style="display:none">0</span>
             </button>
-            <button class="tab-btn rail-btn" data-tab="tab-outline" title="Structure">
+            <button class="tab-btn rail-btn" data-tab="tab-outline" title="見出し構造">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
             </button>
-            <button class="tab-btn rail-btn" data-tab="tab-console" title="Logs">
+            <button class="tab-btn rail-btn" data-tab="tab-console" title="コンソール">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
               <span id="console-badge" class="rail-badge" style="display:none">0</span>
             </button>
@@ -264,232 +342,282 @@
           <div class="sidebar-main">
             <div class="sidebar-content">
 
-          <!-- TAB: Design / Frame Properties (Figma-style) -->
+          <!-- TAB: Design / Frame Properties -->
           <div id="tab-design" class="tab-pane active">
-            <div id="props-empty" class="props-empty">
-              <p>フレームを選択</p>
-              <span>キャンバス上のフレームをクリックすると、位置とサイズを編集できます。</span>
+            <div id="props-empty" class="sidebar-empty">
+              <div class="sidebar-empty-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="14" x="3" y="5" rx="2"/><path d="M3 9h18"/></svg>
+              </div>
+              <p class="sidebar-empty-title">フレームを選択</p>
+              <p class="sidebar-empty-desc">キャンバス上のフレームをクリックすると、位置とサイズを編集できます。</p>
             </div>
             <div id="props-form" class="props-form" hidden>
-              <div class="section-header">
+              <header class="sidebar-pane-header">
                 <h3>プロパティ</h3>
-              </div>
-              <div class="prop-field prop-field-full">
-                <label for="prop-name">名前</label>
-                <input id="prop-name" type="text" class="prop-input" autocomplete="off">
-              </div>
-              <div class="prop-section-label">位置</div>
-              <div class="prop-row">
-                <div class="prop-field">
-                  <label for="prop-x">X</label>
-                  <input id="prop-x" type="number" class="prop-input" step="1">
+              </header>
+
+              <section class="sidebar-block">
+                <h4 class="sidebar-block-title">基本</h4>
+                <div class="prop-field prop-field-full">
+                  <label for="prop-name">名前</label>
+                  <input id="prop-name" type="text" class="prop-input" autocomplete="off">
                 </div>
-                <div class="prop-field">
-                  <label for="prop-y">Y</label>
-                  <input id="prop-y" type="number" class="prop-input" step="1">
+              </section>
+
+              <section class="sidebar-block">
+                <h4 class="sidebar-block-title">レイアウト</h4>
+                <div class="prop-row">
+                  <div class="prop-field">
+                    <label for="prop-x">X</label>
+                    <input id="prop-x" type="number" class="prop-input" step="1">
+                  </div>
+                  <div class="prop-field">
+                    <label for="prop-y">Y</label>
+                    <input id="prop-y" type="number" class="prop-input" step="1">
+                  </div>
                 </div>
-              </div>
-              <div class="prop-section-label">サイズ</div>
-              <div class="prop-row">
-                <div class="prop-field">
-                  <label for="prop-w">W</label>
-                  <input id="prop-w" type="number" class="prop-input" min="200" max="3840" step="1">
+                <div class="prop-row">
+                  <div class="prop-field">
+                    <label for="prop-w">W</label>
+                    <input id="prop-w" type="number" class="prop-input" min="200" max="3840" step="1">
+                  </div>
+                  <div class="prop-field">
+                    <label for="prop-h">H</label>
+                    <input id="prop-h" type="number" class="prop-input" min="200" max="3840" step="1">
+                  </div>
                 </div>
-                <div class="prop-field">
-                  <label for="prop-h">H</label>
-                  <input id="prop-h" type="number" class="prop-input" min="200" max="3840" step="1">
+                <div class="prop-row prop-row-actions">
+                  <button type="button" id="prop-duplicate" class="prop-action-btn" title="複製 (⌘D)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                  </button>
+                  <button type="button" id="prop-orientation" class="prop-action-btn" title="縦横を入れ替え">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 5 5-5 5"/><path d="M21 8H9a4 4 0 0 0-4 4v1"/><path d="m8 21-5-5 5-5"/><path d="M3 16h12a4 4 0 0 0 4-4V11"/></svg>
+                  </button>
                 </div>
-              </div>
-              <div class="prop-row prop-row-actions">
-                <button type="button" id="prop-duplicate" class="prop-action-btn" title="複製 (⌘D)">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
-                  複製
-                </button>
-                <button type="button" id="prop-orientation" class="prop-action-btn" title="縦横を入れ替え">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m16 3 5 5-5 5"/><path d="M21 8H9a4 4 0 0 0-4 4v1"/><path d="m8 21-5-5 5-5"/><path d="M3 16h12a4 4 0 0 0 4-4V11"/></svg>
-                  向きを入れ替え
-                </button>
-              </div>
-              <div class="prop-section-label">User Agent</div>
-              <div class="prop-field prop-field-full">
-                <label for="prop-ua-profile">デバイス</label>
-                <select id="prop-ua-profile" class="prop-input prop-select">
-                  <option value="desktop">Desktop（デフォルト）</option>
-                  <option value="iphone">iPhone</option>
-                  <option value="ipad">iPad</option>
-                  <option value="android">Android</option>
-                  <option value="custom">カスタム</option>
-                </select>
-                <p id="prop-ua-hint" class="prop-hint"></p>
-              </div>
-              <div id="prop-ua-custom-wrap" class="prop-field prop-field-full" hidden>
-                <label for="prop-ua">UA 文字列</label>
-                <textarea id="prop-ua" class="prop-input prop-textarea" rows="3" placeholder="カスタム User-Agent"></textarea>
-              </div>
-              <button type="button" id="prop-ua-apply" class="prop-apply-btn">UAを適用して再読み込み</button>
+              </section>
+
+              <section class="sidebar-block">
+                <h4 class="sidebar-block-title">デバイス</h4>
+                <div class="prop-field prop-field-full">
+                  <label for="prop-ua-profile">User Agent</label>
+                  <select id="prop-ua-profile" class="prop-input prop-select">
+                    <option value="desktop">Desktop（デフォルト）</option>
+                    <option value="iphone">iPhone</option>
+                    <option value="ipad">iPad</option>
+                    <option value="android">Android</option>
+                    <option value="custom">カスタム</option>
+                  </select>
+                  <p id="prop-ua-hint" class="prop-hint"></p>
+                </div>
+                <div id="prop-ua-custom-wrap" class="prop-field prop-field-full" hidden>
+                  <label for="prop-ua">UA 文字列</label>
+                  <div class="prop-ua-row">
+                    <textarea id="prop-ua" class="prop-input prop-textarea" rows="3" placeholder="カスタム User-Agent"></textarea>
+                    <button type="button" id="prop-ua-apply" class="prop-icon-btn" data-tip="UAを適用して再読み込み" aria-label="UAを適用して再読み込み">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.72 2.78L21 8M21 3v5h-5"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </section>
             </div>
           </div>
           
           <!-- TAB: Vision Simulator -->
           <div id="tab-vision" class="tab-pane">
-            <div class="section-header">
-              <h3>Vision Simulator</h3>
-              <p>Simulate accessibility views for different vision types.</p>
-            </div>
-            <div class="vision-grid">
-              <label class="vision-card active">
+            <header class="sidebar-pane-header">
+              <h3>色覚シミュレータ</h3>
+              <p>色覚特性ごとの見え方をプレビュー</p>
+            </header>
+            <div class="vision-list">
+              <label class="vision-option active" data-vision="normal">
+                <span class="vision-swatch vision-swatch-normal" aria-hidden="true"></span>
+                <span class="vision-meta">
+                  <span class="vision-title">標準</span>
+                  <span class="vision-desc">通常の色覚</span>
+                </span>
                 <input type="radio" name="vision-filter" value="normal" checked>
-                <span class="vision-title">Normal</span>
-                <span class="vision-desc">Standard color vision.</span>
               </label>
-              <label class="vision-card">
+              <label class="vision-option" data-vision="protanopia">
+                <span class="vision-swatch vision-swatch-protanopia" aria-hidden="true"></span>
+                <span class="vision-meta">
+                  <span class="vision-title">1型2色覚</span>
+                  <span class="vision-desc">赤の識別が困難（P型）</span>
+                </span>
                 <input type="radio" name="vision-filter" value="protanopia">
-                <span class="vision-title">Protanopia</span>
-                <span class="vision-desc">Red color blindness.</span>
               </label>
-              <label class="vision-card">
+              <label class="vision-option" data-vision="deuteranopia">
+                <span class="vision-swatch vision-swatch-deuteranopia" aria-hidden="true"></span>
+                <span class="vision-meta">
+                  <span class="vision-title">2型2色覚</span>
+                  <span class="vision-desc">緑の識別が困難（D型）</span>
+                </span>
                 <input type="radio" name="vision-filter" value="deuteranopia">
-                <span class="vision-title">Deuteranopia</span>
-                <span class="vision-desc">Green color blindness.</span>
               </label>
-              <label class="vision-card">
+              <label class="vision-option" data-vision="tritanopia">
+                <span class="vision-swatch vision-swatch-tritanopia" aria-hidden="true"></span>
+                <span class="vision-meta">
+                  <span class="vision-title">3型2色覚</span>
+                  <span class="vision-desc">青の識別が困難（T型）</span>
+                </span>
                 <input type="radio" name="vision-filter" value="tritanopia">
-                <span class="vision-title">Tritanopia</span>
-                <span class="vision-desc">Blue color blindness.</span>
               </label>
-              <label class="vision-card">
+              <label class="vision-option" data-vision="achromatopsia">
+                <span class="vision-swatch vision-swatch-achromatopsia" aria-hidden="true"></span>
+                <span class="vision-meta">
+                  <span class="vision-title">全色盲</span>
+                  <span class="vision-desc">モノクロで見える</span>
+                </span>
                 <input type="radio" name="vision-filter" value="achromatopsia">
-                <span class="vision-title">Achromatopsia</span>
-                <span class="vision-desc">Full color blindness (monochrome).</span>
               </label>
             </div>
           </div>
 
           <!-- TAB: SEO / Social Previews -->
           <div id="tab-seo" class="tab-pane">
-            <div class="section-header">
-              <h3>Metadata Previews</h3>
-              <p>Mockups of search and social shared previews.</p>
-            </div>
+            <header class="sidebar-pane-header">
+              <h3>SNSプレビュー</h3>
+              <p>検索・SNSシェア時の見え方</p>
+            </header>
             
-            <div class="seo-preview-list">
-              <!-- Google -->
-              <div class="mock-card google">
-                <div class="mock-brand">Google Search Snippet</div>
-                <div class="mock-body">
-                  <div class="google-url" id="seo-google-url">https://example.com</div>
-                  <h4 class="google-title" id="seo-google-title">Title</h4>
-                  <p class="google-desc" id="seo-google-desc">Description snippet.</p>
+            <div class="preview-stack">
+              <article class="preview-card">
+                <div class="preview-card-head">
+                  <span class="preview-platform preview-platform-google">Google</span>
                 </div>
-              </div>
-
-              <!-- Facebook -->
-              <div class="mock-card facebook">
-                <div class="mock-brand">Facebook Card</div>
-                <div class="mock-body">
-                  <div class="fb-image-container">
-                    <img id="seo-fb-image" src="" alt="og:image" onerror="this.style.display='none'">
-                    <div id="seo-fb-image-placeholder" class="social-placeholder">No image defined</div>
-                  </div>
-                  <div class="fb-meta-box">
-                    <div class="fb-domain" id="seo-fb-domain">EXAMPLE.COM</div>
-                    <h4 class="fb-title" id="seo-fb-title">Title</h4>
-                    <p class="fb-desc" id="seo-fb-desc">Description.</p>
+                <div class="mock-card google">
+                  <div class="mock-body">
+                    <div class="google-url" id="seo-google-url">https://example.com</div>
+                    <h4 class="google-title" id="seo-google-title">Title</h4>
+                    <p class="google-desc" id="seo-google-desc">Description snippet.</p>
                   </div>
                 </div>
-              </div>
+              </article>
 
-              <!-- Twitter -->
-              <div class="mock-card twitter">
-                <div class="mock-brand">Twitter / X Card</div>
-                <div class="mock-body">
-                  <div class="tw-image-container">
-                    <img id="seo-tw-image" src="" alt="twitter:image" onerror="this.style.display='none'">
-                    <div id="seo-tw-image-placeholder" class="social-placeholder">No image defined</div>
-                  </div>
-                  <div class="tw-meta-box">
-                    <div class="tw-domain" id="seo-tw-domain">example.com</div>
-                    <h4 class="tw-title" id="seo-tw-title">Title</h4>
-                    <p class="tw-desc" id="seo-tw-desc">Description.</p>
+              <article class="preview-card">
+                <div class="preview-card-head">
+                  <span class="preview-platform preview-platform-facebook">Facebook</span>
+                </div>
+                <div class="mock-card facebook">
+                  <div class="mock-body">
+                    <div class="fb-image-container">
+                      <img id="seo-fb-image" src="" alt="og:image" onerror="this.style.display='none'">
+                      <div id="seo-fb-image-placeholder" class="social-placeholder">画像なし</div>
+                    </div>
+                    <div class="fb-meta-box">
+                      <div class="fb-domain" id="seo-fb-domain">EXAMPLE.COM</div>
+                      <h4 class="fb-title" id="seo-fb-title">Title</h4>
+                      <p class="fb-desc" id="seo-fb-desc">Description.</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              </article>
 
-              <!-- Slack -->
-              <div class="mock-card slack">
-                <div class="mock-brand">Slack Attachment</div>
-                <div class="mock-body">
-                  <div class="slack-unfurl">
-                    <div class="slack-bar"></div>
-                    <div class="slack-content">
-                      <div class="slack-domain" id="seo-slack-domain">example.com</div>
-                      <h4 class="slack-title" id="seo-slack-title">Title</h4>
-                      <p class="slack-desc" id="seo-slack-desc">Description.</p>
-                      <div class="slack-image-container">
-                        <img id="seo-slack-image" src="" alt="og:image" onerror="this.style.display='none'">
+              <article class="preview-card">
+                <div class="preview-card-head">
+                  <span class="preview-platform preview-platform-x">X</span>
+                </div>
+                <div class="mock-card twitter">
+                  <div class="mock-body">
+                    <div class="tw-image-container">
+                      <img id="seo-tw-image" src="" alt="twitter:image" onerror="this.style.display='none'">
+                      <div id="seo-tw-image-placeholder" class="social-placeholder">画像なし</div>
+                    </div>
+                    <div class="tw-meta-box">
+                      <div class="tw-domain" id="seo-tw-domain">example.com</div>
+                      <h4 class="tw-title" id="seo-tw-title">Title</h4>
+                      <p class="tw-desc" id="seo-tw-desc">Description.</p>
+                    </div>
+                  </div>
+                </div>
+              </article>
+
+              <article class="preview-card">
+                <div class="preview-card-head">
+                  <span class="preview-platform preview-platform-slack">Slack</span>
+                </div>
+                <div class="mock-card slack">
+                  <div class="mock-body">
+                    <div class="slack-unfurl">
+                      <div class="slack-bar"></div>
+                      <div class="slack-content">
+                        <div class="slack-domain" id="seo-slack-domain">example.com</div>
+                        <h4 class="slack-title" id="seo-slack-title">Title</h4>
+                        <p class="slack-desc" id="seo-slack-desc">Description.</p>
+                        <div class="slack-image-container">
+                          <img id="seo-slack-image" src="" alt="og:image" onerror="this.style.display='none'">
+                        </div>
                       </div>
                     </div>
                   </div>
                 </div>
-              </div>
+              </article>
             </div>
           </div>
 
           <!-- TAB: SEO Audit Issues -->
           <div id="tab-seo-audit" class="tab-pane">
-            <div class="section-header section-header-row">
+            <header class="sidebar-pane-header sidebar-pane-header-row">
               <div>
                 <h3>SEO 監査</h3>
                 <p>ページの SEO 上の問題と改善提案</p>
               </div>
-              <button type="button" id="btn-seo-audit-refresh" class="seo-audit-refresh" title="再監査">
+              <button type="button" id="btn-seo-audit-refresh" class="sidebar-icon-btn" title="再監査">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.72 2.78L21 8M21 3v5h-5"/></svg>
               </button>
-            </div>
+            </header>
             <div id="seo-audit-summary" class="seo-audit-summary">
-              <div class="audit-empty">ページを読み込むと監査結果が表示されます</div>
+              <div class="sidebar-empty sidebar-empty-compact">
+                <p class="sidebar-empty-desc">ページを読み込むと監査結果が表示されます</p>
+              </div>
             </div>
             <ul id="seo-audit-list" class="seo-audit-list" aria-label="SEO問題一覧"></ul>
           </div>
 
           <!-- TAB: Document Structure Outline & Image Audits -->
           <div id="tab-outline" class="tab-pane">
-            <div class="outline-section">
-              <div class="section-header">
-                <h3>HTML Headings Outline</h3>
-                <p>Verify structural headings hierarchy tree.</p>
-              </div>
+            <section class="sidebar-block">
+              <header class="sidebar-block-header">
+                <h4 class="sidebar-block-title">見出し構造</h4>
+                <p class="sidebar-block-desc">h1〜h6 の階層ツリー</p>
+              </header>
               <div id="outline-tree" class="outline-tree">
-                <div class="audit-empty">No headers found yet.</div>
+                <div class="sidebar-empty sidebar-empty-compact">
+                  <p class="sidebar-empty-desc">見出しがまだ検出されていません</p>
+                </div>
               </div>
-            </div>
+            </section>
 
-            <div class="divider"></div>
-
-            <div class="image-audit-section">
-              <div class="section-header">
-                <h3>Images Alt Scanner</h3>
-                <p>Check descriptive alt attributes on images.</p>
-              </div>
+            <section class="sidebar-block">
+              <header class="sidebar-block-header">
+                <h4 class="sidebar-block-title">画像の alt チェック</h4>
+                <p class="sidebar-block-desc">代替テキストの有無を確認</p>
+              </header>
               <div id="image-audit-list" class="image-audit-list">
-                <div class="audit-empty">No images found yet.</div>
+                <div class="sidebar-empty sidebar-empty-compact">
+                  <p class="sidebar-empty-desc">画像がまだ検出されていません</p>
+                </div>
               </div>
-            </div>
+            </section>
           </div>
 
           <!-- TAB: Unified Console Logs -->
           <div id="tab-console" class="tab-pane">
-            <div class="section-header flex-header">
-              <h3>Consolidated Console</h3>
-              <button id="btn-clear-console" class="text-button">Clear</button>
-            </div>
+            <header class="sidebar-pane-header sidebar-pane-header-row">
+              <div>
+                <h3>コンソール</h3>
+                <p>全フレームのログを統合表示</p>
+              </div>
+              <button id="btn-clear-console" class="sidebar-icon-btn" data-tip="ログをクリア" aria-label="ログをクリア">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/></svg>
+              </button>
+            </header>
             <div class="console-filter-bar">
-              <label class="checkbox-label"><input type="checkbox" id="log-filter-info" checked> Info</label>
-              <label class="checkbox-label"><input type="checkbox" id="log-filter-warn" checked> Warn</label>
-              <label class="checkbox-label"><input type="checkbox" id="log-filter-error" checked> Error</label>
+              <label class="filter-chip"><input type="checkbox" id="log-filter-info" checked><span>情報</span></label>
+              <label class="filter-chip"><input type="checkbox" id="log-filter-warn" checked><span>警告</span></label>
+              <label class="filter-chip"><input type="checkbox" id="log-filter-error" checked><span>エラー</span></label>
             </div>
             <div id="console-logs-container" class="console-logs-container">
-              <div class="console-empty">No logs.</div>
+              <div class="console-empty">ログはありません</div>
             </div>
           </div>
 
@@ -510,22 +638,22 @@
     <div class="modal-card">
       <div class="modal-header">
         <h3>カスタムフレーム</h3>
-        <button id="modal-btn-close" class="icon-button">
+        <button id="modal-btn-close" class="icon-button" title="閉じる">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" x2="6" y1="6" y2="18"/><line x1="6" x2="18" y1="6" y2="18"/></svg>
         </button>
       </div>
       <form id="add-viewport-form" class="modal-body">
         <div class="form-group">
-          <label for="vp-name">Name</label>
-          <input type="text" id="vp-name" required placeholder="e.g. iPhone 15">
+          <label for="vp-name">名前</label>
+          <input type="text" id="vp-name" required placeholder="例: iPhone 15">
         </div>
         <div class="form-row">
           <div class="form-group">
-            <label for="vp-width">Width (px)</label>
+            <label for="vp-width">幅 (px)</label>
             <input type="number" id="vp-width" required min="200" max="3840" value="393">
           </div>
           <div class="form-group">
-            <label for="vp-height">Height (px)</label>
+            <label for="vp-height">高さ (px)</label>
             <input type="number" id="vp-height" required min="200" max="3840" value="852">
           </div>
         </div>
@@ -555,6 +683,7 @@
           <section class="shortcuts-section">
             <h4>ナビゲーション</h4>
             <dl class="shortcut-list">
+              <div><dt>⌘⇧H</dt><dd>ホーム</dd></div>
               <div><dt>⌘L</dt><dd>URLバーにフォーカス</dd></div>
               <div><dt>⌘T</dt><dd>新しいタブ</dd></div>
               <div><dt>⌘W</dt><dd>タブを閉じる</dd></div>
