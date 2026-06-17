@@ -3,32 +3,33 @@
    ========================================================================== */
 
 :root {
-  /* Figma dark UI tokens */
+  /* Figma UI3 dark */
   --bg-canvas: #1e1e1e;
-  --bg-app: #1e1e1e;
+  --bg-app: #2c2c2c;
   --bg-surface: #2c2c2c;
   --bg-surface-alt: #383838;
-  --bg-control: #444444;
-  --bg-control-hover: #505050;
+  --bg-control: rgba(255, 255, 255, 0.06);
+  --bg-control-hover: rgba(255, 255, 255, 0.1);
+  --bg-hover: rgba(255, 255, 255, 0.06);
 
-  --border-color: rgba(255, 255, 255, 0.1);
-  --border-color-hover: rgba(255, 255, 255, 0.18);
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-color-hover: rgba(255, 255, 255, 0.14);
 
   --text-main: rgba(255, 255, 255, 0.9);
-  --text-muted: rgba(255, 255, 255, 0.55);
-  --text-dark: rgba(255, 255, 255, 0.35);
+  --text-muted: rgba(255, 255, 255, 0.5);
+  --text-dark: rgba(255, 255, 255, 0.32);
 
-  --accent: #2eb5ff;
-  --accent-soft: rgba(46, 181, 255, 0.22);
+  --accent: #0d99ff;
+  --accent-soft: rgba(13, 153, 255, 0.14);
 
   --emerald: #14ae5c;
   --amber: #f5a623;
   --rose: #f24822;
 
-  --dot-color: rgba(255, 255, 255, 0.08);
-  --shadow-frame: 0 10px 32px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.18);
-  --shadow-pop: 0 8px 28px rgba(46, 181, 255, 0.18);
-  --shadow-float: 0 12px 40px rgba(0, 0, 0, 0.38);
+  --dot-color: rgba(255, 255, 255, 0.07);
+  --shadow-frame: 0 1px 2px rgba(0, 0, 0, 0.28), 0 6px 20px rgba(0, 0, 0, 0.18);
+  --shadow-pop: 0 0 0 1px rgba(13, 153, 255, 0.35);
+  --shadow-float: 0 4px 20px rgba(0, 0, 0, 0.32), 0 0 0 1px rgba(255, 255, 255, 0.06);
 
   --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -43,43 +44,44 @@
   --box-margin: rgba(246, 178, 107, 0.22);
   --box-border: rgba(255, 220, 121, 0.28);
   --box-padding: rgba(152, 195, 121, 0.24);
-  --box-content: rgba(46, 181, 255, 0.22);
+  --box-content: rgba(13, 153, 255, 0.2);
 
-  --sidebar-width: 280px;
-  --left-panel-width: 320px;
+  --sidebar-width: 260px;
+  --left-panel-width: 280px;
   --left-panel-layers-grow: 48;
   --left-panel-inspector-grow: 52;
-  --rail-width: 40px;
-  --radius-sm: 10px;
-  --radius-md: 14px;
-  --radius-lg: 20px;
+  --rail-width: 36px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
   --radius-pill: 999px;
 }
 
 /* Figma light UI tokens */
 body.light-theme {
   color-scheme: light;
-  --bg-canvas: #f5f5f5;
+  --bg-canvas: #e5e5e5;
   --bg-app: #f5f5f5;
   --bg-surface: #ffffff;
   --bg-surface-alt: #f0f0f0;
-  --bg-control: #e6e6e6;
-  --bg-control-hover: #d9d9d9;
+  --bg-control: rgba(0, 0, 0, 0.05);
+  --bg-control-hover: rgba(0, 0, 0, 0.08);
+  --bg-hover: rgba(0, 0, 0, 0.05);
 
-  --border-color: rgba(0, 0, 0, 0.1);
-  --border-color-hover: rgba(0, 0, 0, 0.18);
+  --border-color: rgba(0, 0, 0, 0.08);
+  --border-color-hover: rgba(0, 0, 0, 0.14);
 
-  --text-main: rgba(0, 0, 0, 0.9);
-  --text-muted: rgba(0, 0, 0, 0.55);
-  --text-dark: rgba(0, 0, 0, 0.35);
+  --text-main: rgba(0, 0, 0, 0.88);
+  --text-muted: rgba(0, 0, 0, 0.5);
+  --text-dark: rgba(0, 0, 0, 0.32);
 
-  --accent: #2eb5ff;
-  --accent-soft: rgba(46, 181, 255, 0.14);
+  --accent: #0d99ff;
+  --accent-soft: rgba(13, 153, 255, 0.12);
 
-  --dot-color: rgba(0, 0, 0, 0.06);
-  --shadow-frame: 0 10px 28px rgba(0, 0, 0, 0.1), 0 2px 8px rgba(0, 0, 0, 0.06);
-  --shadow-pop: 0 8px 24px rgba(46, 181, 255, 0.12);
-  --shadow-float: 0 12px 36px rgba(0, 0, 0, 0.12);
+  --dot-color: rgba(0, 0, 0, 0.05);
+  --shadow-frame: 0 1px 2px rgba(0, 0, 0, 0.08), 0 6px 16px rgba(0, 0, 0, 0.06);
+  --shadow-pop: 0 0 0 1px rgba(13, 153, 255, 0.3);
+  --shadow-float: 0 4px 16px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.06);
 }
 
 /* Theme Icon Toggling */
@@ -155,9 +157,9 @@ button, input, select {
 .control-bar {
   display: flex;
   align-items: center;
-  gap: 6px;
-  min-height: 38px;
-  padding: 0 8px;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0 6px;
   background: var(--bg-app);
   border-bottom: 1px solid var(--border-color);
   z-index: 100;
@@ -177,17 +179,7 @@ button, input, select {
 }
 
 .control-bar-center {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  height: 100%;
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  -webkit-app-region: drag;
-  pointer-events: none;
-  max-width: 120px;
-  overflow: hidden;
+  display: none;
 }
 
 .window-controls-spacer {
@@ -307,21 +299,20 @@ button, input, select {
 }
 
 .icon-button {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.12s ease, color 0.12s ease;
 }
 
 .icon-button:hover {
-  background: var(--bg-control);
+  background: var(--bg-control-hover);
   color: var(--text-main);
-  transform: scale(1.05);
 }
 
 .icon-button svg {
@@ -343,22 +334,22 @@ button, input, select {
   align-items: center;
   flex: 1 1 0;
   min-width: 0;
-  background: var(--bg-surface);
+  background: var(--bg-control);
   border: 1px solid transparent;
-  border-radius: var(--radius-pill);
-  padding: 0 10px;
-  height: 28px;
-  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  border-radius: var(--radius-sm);
+  padding: 0 8px;
+  height: 26px;
+  transition: border-color 0.12s ease, background 0.12s ease;
 }
 
 .url-input-container:hover {
-  border-color: var(--border-color);
+  background: var(--bg-control-hover);
 }
 
 .url-input-container:focus-within {
   border-color: var(--accent);
-  background: var(--bg-app);
-  box-shadow: var(--shadow-pop);
+  background: var(--bg-surface-alt);
+  box-shadow: none;
 }
 
 .url-icon {
@@ -394,13 +385,13 @@ button, input, select {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   border-radius: var(--radius-sm);
   background: transparent;
   border: none;
   cursor: pointer;
-  transition: background 0.12s ease;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
 .control-button svg {
@@ -443,27 +434,26 @@ button, input, select {
 }
 
 .tool-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
 .tool-btn:hover {
-  background: var(--bg-control);
+  background: var(--bg-control-hover);
   color: var(--text-main);
-  transform: scale(1.05);
 }
 
 .tool-btn.active {
   background: var(--accent-soft);
   color: var(--accent);
-  box-shadow: inset 0 0 0 1px rgba(46, 181, 255, 0.25);
+  box-shadow: inset 0 0 0 1px rgba(13, 153, 255, 0.22);
 }
 
 .tool-btn svg {
@@ -490,16 +480,16 @@ button, input, select {
 .viewport-menu {
   position: absolute;
   left: 50%;
-  bottom: calc(100% + 12px);
+  bottom: calc(100% + 8px);
   transform: translateX(-50%);
-  width: 268px;
-  max-height: 360px;
+  width: 240px;
+  max-height: 320px;
   overflow-y: auto;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-md);
   box-shadow: var(--shadow-float);
-  padding: 8px;
+  padding: 6px;
   z-index: 30;
 }
 
@@ -528,8 +518,7 @@ button, input, select {
 }
 
 .viewport-menu-item:hover {
-  background: var(--bg-control);
-  transform: translateX(2px);
+  background: var(--bg-control-hover);
 }
 
 .viewport-menu-icon {
@@ -589,28 +578,28 @@ button, input, select {
   align-items: center;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  height: 38px;
-  padding: 0 6px;
+  border-radius: var(--radius-md);
+  height: 32px;
+  padding: 0 4px;
   box-shadow: var(--shadow-float);
+  backdrop-filter: blur(12px);
 }
 
 .zoom-btn {
-  width: 26px;
-  height: 26px;
+  width: 24px;
+  height: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   cursor: pointer;
   color: var(--text-muted);
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
 .zoom-btn:hover {
-  background: var(--bg-control);
+  background: var(--bg-control-hover);
   color: var(--text-main);
-  transform: scale(1.06);
 }
 
 .zoom-btn svg {
@@ -677,11 +666,11 @@ button, input, select {
 .breakpoint-ruler-container {
   display: flex;
   align-items: center;
-  height: 34px;
+  height: 28px;
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-pill);
-  padding: 0 12px;
+  border-radius: var(--radius-md);
+  padding: 0 10px;
   font-size: 10px;
   font-weight: 500;
   color: var(--text-muted);
@@ -689,8 +678,9 @@ button, input, select {
   flex-shrink: 0;
   overflow: hidden;
   box-shadow: var(--shadow-float);
-  max-width: min(420px, 45vw);
+  max-width: min(380px, 42vw);
   min-width: 0;
+  backdrop-filter: blur(12px);
 }
 
 .ruler-label {
@@ -777,26 +767,26 @@ button, input, select {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  height: 44px;
-  padding: 0 14px;
+  height: 36px;
+  padding: 0 12px;
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
-  background: linear-gradient(180deg, var(--bg-surface-alt) 0%, var(--bg-surface) 100%);
+  background: var(--bg-surface);
+}
+
+.left-panel-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  letter-spacing: 0;
+  text-transform: none;
 }
 
 .left-panel-brand {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: 0;
   min-width: 0;
-}
-
-.left-panel-title {
-  font-size: 12px;
-  font-weight: 700;
-  color: var(--text-main);
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
 }
 
 .left-panel-subtitle {
@@ -1511,10 +1501,10 @@ body.left-panel-split-active * {
 /* Browser tab bar — integrated with canvas */
 .browser-tabs-bar {
   display: flex;
-  align-items: flex-end;
-  gap: 0;
-  min-height: 34px;
-  padding: 4px 8px 0 76px;
+  align-items: center;
+  gap: 4px;
+  min-height: 30px;
+  padding: 0 8px 0 76px;
   background: var(--bg-app);
   border-bottom: 1px solid var(--border-color);
   flex-shrink: 0;
@@ -1523,8 +1513,8 @@ body.left-panel-split-active * {
 
 .browser-tabs {
   display: flex;
-  align-items: flex-end;
-  gap: 2px;
+  align-items: center;
+  gap: 4px;
   flex: 1;
   overflow-x: auto;
   min-width: 0;
@@ -1535,64 +1525,46 @@ body.left-panel-split-active * {
   display: flex;
   align-items: center;
   gap: 2px;
-  height: 32px;
-  max-width: 200px;
-  min-width: 100px;
-  padding-right: 4px;
+  height: 24px;
+  max-width: 180px;
+  min-width: 88px;
+  padding-right: 2px;
   border: none;
-  border-radius: 12px 12px 0 0;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-muted);
   flex-shrink: 0;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.1s ease, color 0.1s ease;
   position: relative;
 }
 
 .browser-tab::after {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 8px;
-  bottom: 8px;
-  width: 1px;
-  background: var(--border-color);
-  opacity: 0.6;
-}
-
-.browser-tab:last-of-type::after {
   display: none;
 }
 
 .browser-tab:hover {
-  background: var(--bg-surface);
+  background: var(--bg-control);
   color: var(--text-main);
-  transform: translateY(-1px);
 }
 
 .browser-tab.active {
   background: var(--bg-canvas);
   color: var(--text-main);
+  box-shadow: inset 0 0 0 1px var(--border-color);
 }
 
 .browser-tab.active::before {
-  content: "";
-  position: absolute;
-  left: 10px;
-  right: 10px;
-  top: 0;
-  height: 3px;
-  background: var(--accent);
-  border-radius: 0 0 var(--radius-pill) var(--radius-pill);
+  display: none;
 }
 
 .browser-tab-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   height: 100%;
   flex: 1;
   min-width: 0;
-  padding: 0 10px;
+  padding: 0 8px;
   cursor: pointer;
 }
 
@@ -1675,24 +1647,23 @@ body.left-panel-split-active * {
 }
 
 .browser-tab-new {
-  width: 28px;
-  height: 28px;
-  margin: 0 0 2px 4px;
+  width: 24px;
+  height: 24px;
+  margin: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
   flex-shrink: 0;
   -webkit-app-region: no-drag;
-  transition: background 0.15s ease, transform 0.15s ease;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
 .browser-tab-new:hover {
-  background: var(--bg-control);
+  background: var(--bg-control-hover);
   color: var(--text-main);
-  transform: scale(1.06);
 }
 
 .browser-tabs,
@@ -1921,14 +1892,14 @@ body.left-panel-split-active * {
    Viewport Cards — Figma frame style
    -------------------------------------------------------------------------- */
 .viewport-frame-shell.is-selected .viewport-card {
-  outline: 2px solid var(--accent);
+  outline: 1.5px solid var(--accent);
   outline-offset: -1px;
-  box-shadow: var(--shadow-pop), var(--shadow-frame);
+  box-shadow: var(--shadow-frame);
 }
 
 .viewport-frame-shell.is-selected .viewport-header.frame-bar {
   background: var(--bg-surface-alt);
-  border-bottom-color: rgba(46, 181, 255, 0.45);
+  border-bottom-color: rgba(13, 153, 255, 0.35);
 }
 
 .viewport-card {
@@ -1936,12 +1907,12 @@ body.left-panel-split-active * {
   flex-direction: column;
   position: relative;
   background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.08);
   border-radius: var(--radius-md);
   flex-shrink: 0;
   overflow: hidden;
   box-shadow: var(--shadow-frame);
-  transition: box-shadow 0.2s ease, outline 0.15s ease, transform 0.2s ease;
+  transition: box-shadow 0.15s ease, outline 0.12s ease;
   padding-top: 34px;
   box-sizing: border-box;
 }
@@ -1955,12 +1926,12 @@ body.left-panel-split-active * {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
   height: 34px;
   min-height: 34px;
-  padding: 0 8px 0 10px;
-  background: var(--bg-surface);
-  border-bottom: 1px solid var(--border-color);
+  padding: 0 8px;
+  background: #2c2c2c;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
   user-select: none;
   flex-shrink: 0;
   cursor: grab;
@@ -2159,32 +2130,31 @@ body.light-theme .viewport-frame-shell:not(.is-selected):hover .viewport-card {
 
 .rail-btn {
   position: relative;
-  width: 34px;
-  height: 34px;
+  width: 28px;
+  height: 28px;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-pill);
+  border-radius: var(--radius-sm);
   color: var(--text-muted);
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, transform 0.15s ease;
+  transition: background 0.1s ease, color 0.1s ease;
 }
 
 .rail-btn svg {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
 }
 
 .rail-btn:hover {
   color: var(--text-main);
-  background: var(--bg-surface);
-  transform: scale(1.06);
+  background: var(--bg-control-hover);
 }
 
 .rail-btn.active {
   color: var(--accent);
   background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px rgba(46, 181, 255, 0.2);
+  box-shadow: inset 0 0 0 1px rgba(13, 153, 255, 0.18);
 }
 
 .rail-badge {

@@ -419,20 +419,75 @@ ipcRenderer.on('request-metadata', () => {
   ipcRenderer.sendToHost('guest-metadata', extractPageMetadata());
 });
 
-ipcRenderer.on('wheel-scroll', (_event, { deltaX, deltaY }) => {
+function isScrollableElement(el) {
+  if (!(el instanceof Element)) return false;
+
+  const root = document.scrollingElement || document.documentElement;
+  if (el === root || el === document.documentElement || el === document.body) {
+    return root.scrollHeight > root.clientHeight + 1 || root.scrollWidth > root.clientWidth + 1;
+  }
+
+  const style = getComputedStyle(el);
+  const canScrollY = (style.overflowY === 'auto' || style.overflowY === 'scroll' || style.overflowY === 'overlay')
+    && el.scrollHeight > el.clientHeight + 1;
+  const canScrollX = (style.overflowX === 'auto' || style.overflowX === 'scroll' || style.overflowX === 'overlay')
+    && el.scrollWidth > el.clientWidth + 1;
+  return canScrollY || canScrollX;
+}
+
+function findScrollableTargetAt(x, y) {
+  if (typeof x === 'number' && typeof y === 'number') {
+    let el = document.elementFromPoint(x, y);
+    while (el) {
+      if (isScrollableElement(el)) return el;
+      if (el === document.body || el === document.documentElement) break;
+      el = el.parentElement;
+    }
+  }
+  return document.scrollingElement || document.documentElement;
+}
+
+function scrollElementBy(el, dx, dy) {
+  const root = document.scrollingElement || document.documentElement;
+  if (el === root || el === document.documentElement || el === document.body) {
+    const x0 = window.scrollX;
+    const y0 = window.scrollY;
+    const maxX = Math.max(0, root.scrollWidth - window.innerWidth);
+    const maxY = Math.max(0, root.scrollHeight - window.innerHeight);
+    const nextX = Math.min(maxX, Math.max(0, x0 + dx));
+    const nextY = Math.min(maxY, Math.max(0, y0 + dy));
+    window.scrollTo(nextX, nextY);
+    return {
+      consumedX: window.scrollX - x0,
+      consumedY: window.scrollY - y0,
+    };
+  }
+
+  const x0 = el.scrollLeft;
+  const y0 = el.scrollTop;
+  const maxX = Math.max(0, el.scrollWidth - el.clientWidth);
+  const maxY = Math.max(0, el.scrollHeight - el.clientHeight);
+  el.scrollLeft = Math.min(maxX, Math.max(0, x0 + dx));
+  el.scrollTop = Math.min(maxY, Math.max(0, y0 + dy));
+  return {
+    consumedX: el.scrollLeft - x0,
+    consumedY: el.scrollTop - y0,
+  };
+}
+
+ipcRenderer.on('wheel-scroll', (_event, { deltaX, deltaY, x, y }) => {
   const dx = Number(deltaX) || 0;
   const dy = Number(deltaY) || 0;
-  const x0 = window.scrollX;
-  const y0 = window.scrollY;
+  if (!dx && !dy) return;
 
-  window.scrollBy({
-    left: dx,
-    top: dy,
-    behavior: 'auto',
-  });
+  const target = findScrollableTargetAt(
+    typeof x === 'number' ? x : undefined,
+    typeof y === 'number' ? y : undefined,
+  );
+  const { consumedX, consumedY } = scrollElementBy(target, dx, dy);
+  const rx = dx - consumedX;
+  const ry = dy - consumedY;
 
-  const rx = dx - (window.scrollX - x0);
-  const ry = dy - (window.scrollY - y0);
   if (Math.abs(rx) > 0.5 || Math.abs(ry) > 0.5) {
     ipcRenderer.sendToHost('wheel-scroll-overflow', { deltaX: rx, deltaY: ry });
   }

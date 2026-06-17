@@ -155,6 +155,8 @@ let panPointerY = 0;
 let frameDragPending = false;
 let frameDragPendingPointerId = null;
 const FRAME_DRAG_THRESHOLD = 4;
+const FRAME_EDGE_AUTOPAN_MARGIN = 56;
+const FRAME_EDGE_AUTOPAN_MAX_SPEED = 16;
 
 const VIEWPORT_HEADER_H = 34;
 
@@ -823,6 +825,54 @@ function trySelectFrameFromEvent(e) {
   return true;
 }
 
+function computeEdgeAutoPanDelta(clientX, clientY) {
+  const grid = document.getElementById('workspace-grid');
+  if (!grid) return { panDx: 0, panDy: 0 };
+
+  const rect = grid.getBoundingClientRect();
+  const footer = grid.querySelector('.canvas-footer');
+  const bottomLimit = footer
+    ? footer.getBoundingClientRect().top
+    : rect.bottom;
+
+  let panDx = 0;
+  let panDy = 0;
+  const margin = FRAME_EDGE_AUTOPAN_MARGIN;
+  const maxSpeed = FRAME_EDGE_AUTOPAN_MAX_SPEED;
+
+  const edgeFactor = (distance) => 1 - Math.max(0, distance) / margin;
+
+  const leftDist = clientX - rect.left;
+  const rightDist = rect.right - clientX;
+  const topDist = clientY - rect.top;
+  const bottomDist = bottomLimit - clientY;
+
+  if (leftDist < margin) {
+    panDx = maxSpeed * edgeFactor(leftDist);
+  } else if (rightDist < margin) {
+    panDx = -maxSpeed * edgeFactor(rightDist);
+  }
+
+  if (topDist < margin) {
+    panDy = maxSpeed * edgeFactor(topDist);
+  } else if (bottomDist < margin) {
+    panDy = -maxSpeed * edgeFactor(bottomDist);
+  }
+
+  return { panDx, panDy };
+}
+
+function applyEdgeAutoPan(clientX, clientY, adjustStart) {
+  const { panDx, panDy } = computeEdgeAutoPanDelta(clientX, clientY);
+  if (!panDx && !panDy) return;
+
+  panX += panDx;
+  panY += panDy;
+  adjustStart.x += panDx;
+  adjustStart.y += panDy;
+  scheduleCanvasTransform();
+}
+
 function flushFrameDrag() {
   frameDragRaf = null;
   if (!isDraggingFrame) return;
@@ -830,6 +880,13 @@ function flushFrameDrag() {
   const tab = getActiveTab();
   const vp = tab?.viewports.find(v => v.id === frameDragVpId);
   if (!vp || !tab) return;
+
+  applyEdgeAutoPan(frameDragPointerX, frameDragPointerY, {
+    get x() { return frameDragStartX; },
+    set x(v) { frameDragStartX = v; },
+    get y() { return frameDragStartY; },
+    set y(v) { frameDragStartY = v; },
+  });
 
   const dx = (frameDragPointerX - frameDragStartX) / workspaceZoom;
   const dy = (frameDragPointerY - frameDragStartY) / workspaceZoom;
@@ -850,6 +907,13 @@ function flushFrameResize() {
   const tab = getActiveTab();
   const vp = tab?.viewports.find(v => v.id === resizeVpId);
   if (!vp || !tab) return;
+
+  applyEdgeAutoPan(resizePointerX, resizePointerY, {
+    get x() { return resizeStartX; },
+    set x(v) { resizeStartX = v; },
+    get y() { return resizeStartY; },
+    set y(v) { resizeStartY = v; },
+  });
 
   const dx = (resizePointerX - resizeStartX) / workspaceZoom;
   const dy = (resizePointerY - resizeStartY) / workspaceZoom;
@@ -2978,47 +3042,21 @@ function panCanvasBy(dx, dy) {
   scheduleCanvasTransform();
 }
 
-function scrollWebviewBy(webview, dx, dy) {
+function guestPointFromClient(webview, clientX, clientY) {
+  const rect = webview.getBoundingClientRect();
+  if (!rect.width || !rect.height) return { x: 0, y: 0 };
+
+  const x = ((clientX - rect.left) / rect.width) * webview.clientWidth;
+  const y = ((clientY - rect.top) / rect.height) * webview.clientHeight;
+  return { x, y };
+}
+
+function scrollWebviewBy(webview, dx, dy, clientX, clientY) {
   if (!webview) return false;
 
-  const applyOverflow = (consumedX, consumedY) => {
-    const rx = dx - consumedX;
-    const ry = dy - consumedY;
-    if (Math.abs(rx) > 0.5 || Math.abs(ry) > 0.5) {
-      panCanvasBy(rx, ry);
-    }
-  };
-
-  const script = `(() => {
-    const x0 = window.scrollX;
-    const y0 = window.scrollY;
-    const root = document.scrollingElement || document.documentElement;
-    const maxX = Math.max(0, root.scrollWidth - window.innerWidth);
-    const maxY = Math.max(0, root.scrollHeight - window.innerHeight);
-    const nextX = Math.min(maxX, Math.max(0, x0 + ${dx}));
-    const nextY = Math.min(maxY, Math.max(0, y0 + ${dy}));
-    window.scrollTo(nextX, nextY);
-    return {
-      consumedX: window.scrollX - x0,
-      consumedY: window.scrollY - y0,
-    };
-  })()`;
-
-  if (typeof webview.executeJavaScript === 'function') {
-    webview.executeJavaScript(script)
-      .then(({ consumedX, consumedY }) => applyOverflow(consumedX, consumedY))
-      .catch(() => {
-        try {
-          webview.send('wheel-scroll', { deltaX: dx, deltaY: dy });
-        } catch {
-          panCanvasBy(dx, dy);
-        }
-      });
-    return true;
-  }
-
+  const { x, y } = guestPointFromClient(webview, clientX, clientY);
   try {
-    webview.send('wheel-scroll', { deltaX: dx, deltaY: dy });
+    webview.send('wheel-scroll', { deltaX: dx, deltaY: dy, x, y });
     return true;
   } catch {
     return false;
@@ -3049,7 +3087,7 @@ function handleWorkspaceWheel(e) {
   const wantsCanvasPan = isHandToolActive() || e.shiftKey;
   const webview = wantsCanvasPan ? null : getWebviewAtPoint(e.clientX, e.clientY);
 
-  if (webview && scrollWebviewBy(webview, dx, dy)) {
+  if (webview && scrollWebviewBy(webview, dx, dy, e.clientX, e.clientY)) {
     return;
   }
 
@@ -4055,6 +4093,13 @@ function setupWebviewHooks(webview, vp, tab) {
       return;
     }
 
+    if (channel === 'wheel-scroll-overflow') {
+      if (typeof data?.deltaX === 'number' || typeof data?.deltaY === 'number') {
+        panCanvasBy(data.deltaX || 0, data.deltaY || 0);
+      }
+      return;
+    }
+
     if (tab.id !== activeBrowserTabId) return;
 
     if (channel === 'guest-scroll') {
@@ -4065,10 +4110,6 @@ function setupWebviewHooks(webview, vp, tab) {
           if (otherWv) otherWv.send('sync-scroll', data);
         }
       });
-    } else if (channel === 'wheel-scroll-overflow') {
-      if (typeof data?.deltaX === 'number' || typeof data?.deltaY === 'number') {
-        panCanvasBy(data.deltaX || 0, data.deltaY || 0);
-      }
     } else if (channel === 'guest-click') {
       if (data?.selector && vp.id === selectedViewportId && !inspectModeActive) {
         highlightDomElement(vp, tab, data.selector);
