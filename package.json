@@ -4,7 +4,9 @@
   "description": "Sashigane - A premium developer browser designed for responsive multi-viewport testing, auditing, and visual checking.",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "build": "electron-builder --mac",
+    "build:dir": "electron-builder --mac --dir"
   },
   "keywords": [
     "developer",
@@ -15,7 +17,34 @@
   ],
   "author": "Antigravity & Yamanokazuki",
   "license": "ISC",
+  "build": {
+    "appId": "com.ituyama.sashigane",
+    "productName": "Sashigane",
+    "files": [
+      "**/*",
+      "!**/.git/**",
+      "!dist/**",
+      "!build/icon.iconset/**"
+    ],
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon.png",
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "identity": null
+    },
+    "dmg": {
+      "title": "Sashigane ${version}"
+    }
+  },
   "devDependencies": {
-    "electron": "^31.0.0"
+    "electron": "^31.0.0",
+    "electron-builder": "^25.1.8"
   }
 }
