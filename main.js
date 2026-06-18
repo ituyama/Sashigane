@@ -2,6 +2,13 @@ const { app, BrowserWindow, ipcMain, webContents, dialog, nativeTheme } = requir
 const path = require('path');
 const fs = require('fs');
 
+let HapticFeedback;
+try {
+  HapticFeedback = require('haptic-feedback-swift').HapticFeedback;
+} catch {
+  // optional — visual fallback only when unavailable
+}
+
 let mainWindow = null;
 let isQuitting = false;
 
@@ -24,6 +31,7 @@ function createWindow() {
       contextIsolation: true,
       nodeIntegration: false,
       webviewTag: true,
+      backgroundThrottling: true,
     },
     // Premium macOS frameless style with traffic lights
     titleBarStyle: 'hiddenInset',
@@ -127,6 +135,18 @@ ipcMain.on('set-user-agent', (event, { webContentsId, userAgent }) => {
 ipcMain.on('set-native-theme', (_event, { mode, resolved }) => {
   nativeTheme.themeSource = mode === 'system' ? 'system' : resolved;
   applyNativeWindowTheme(resolved);
+});
+
+ipcMain.handle('perform-haptic', (_event, pattern = 'alignment') => {
+  if (process.platform !== 'darwin' || !HapticFeedback) {
+    return { ok: false };
+  }
+  try {
+    new HapticFeedback().trigger(pattern);
+    return { ok: true };
+  } catch {
+    return { ok: false };
+  }
 });
 
 function getWorkspaceStorePath() {

@@ -64,5 +64,8 @@
   "devDependencies": {
     "electron": "^31.0.0",
     "electron-builder": "^25.1.8"
+  },
+  "optionalDependencies": {
+    "haptic-feedback-swift": "^1.3.0"
   }
 }

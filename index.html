@@ -57,7 +57,7 @@
       <!-- Compact Tool Controls -->
       <div class="global-controls">
         <!-- Sync Status -->
-        <button id="btn-toggle-sync" class="control-button active" title="インタラクション同期 ON/OFF">
+        <button id="btn-toggle-sync" class="control-button active" title="同期 ON — スクロール・クリック・入力を全フレームへ">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/>
           </svg>
@@ -126,10 +126,18 @@
       <aside id="left-panel" class="left-panel">
         <div id="left-panel-body" class="left-panel-body">
           <section class="left-section layers-section left-layers-section">
-            <header class="lpane-section-header">
+            <header class="lpane-section-header lpane-section-header-row">
               <div class="lpane-section-heading">
                 <h3>フレーム</h3>
                 <span id="layers-count" class="lpane-count-badge">0</span>
+              </div>
+              <div class="lpane-toolbar" role="toolbar" aria-label="フレーム整列">
+                <button type="button" id="btn-align-center" class="lpane-tool-btn" title="選択フレームを中央へ">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/></svg>
+                </button>
+                <button type="button" id="btn-arrange-row" class="lpane-tool-btn" title="全フレームを横一列に整列">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="6" height="14" x="2" y="5" rx="1"/><rect width="6" height="14" x="9" y="5" rx="1"/><rect width="6" height="14" x="16" y="5" rx="1"/></svg>
+                </button>
               </div>
             </header>
             <div class="lpane-scroll-area">
@@ -237,7 +245,16 @@
                   </span>
                   <span class="home-create-meta">
                     <span class="home-create-label">新しいボード</span>
-                    <span class="home-create-desc">空白のキャンバス</span>
+                    <span class="home-create-desc">直近の URL + 3 フレーム</span>
+                  </span>
+                </button>
+                <button type="button" id="home-btn-last-layout" class="home-create-card">
+                  <span class="home-create-thumb home-create-thumb--layout" aria-hidden="true">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="5" height="8" x="3" y="8" rx="1"/><rect width="5" height="11" x="9.5" y="5" rx="1"/><rect width="5" height="9" x="16" y="7" rx="1"/></svg>
+                  </span>
+                  <span class="home-create-meta">
+                    <span class="home-create-label">前回の構成</span>
+                    <span class="home-create-desc">保存したレイアウトで開く</span>
                   </span>
                 </button>
                 <button type="button" id="home-btn-url" class="home-create-card">
@@ -333,6 +350,10 @@
             <button class="tab-btn rail-btn" data-tab="tab-outline" title="見出し構造">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
             </button>
+            <button class="tab-btn rail-btn" data-tab="tab-layout" title="レイアウト監査">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18"/><path d="M9 21V9"/></svg>
+              <span id="layout-audit-badge" class="rail-badge" style="display:none">0</span>
+            </button>
             <button class="tab-btn rail-btn" data-tab="tab-console" title="コンソール">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
               <span id="console-badge" class="rail-badge" style="display:none">0</span>
@@ -344,13 +365,6 @@
 
           <!-- TAB: Design / Frame Properties -->
           <div id="tab-design" class="tab-pane active">
-            <div id="props-empty" class="sidebar-empty">
-              <div class="sidebar-empty-icon" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect width="18" height="14" x="3" y="5" rx="2"/><path d="M3 9h18"/></svg>
-              </div>
-              <p class="sidebar-empty-title">フレームを選択</p>
-              <p class="sidebar-empty-desc">キャンバス上のフレームをクリックすると、位置とサイズを編集できます。</p>
-            </div>
             <div id="props-form" class="props-form" hidden>
               <header class="sidebar-pane-header">
                 <h3>プロパティ</h3>
@@ -600,6 +614,43 @@
             </section>
           </div>
 
+          <!-- TAB: Layout Audit -->
+          <div id="tab-layout" class="tab-pane">
+            <header class="sidebar-pane-header sidebar-pane-header-row">
+              <div>
+                <h3>レイアウト監査</h3>
+                <p>横スクロール・はみ出し要素の検出</p>
+              </div>
+              <button type="button" id="btn-layout-audit-refresh" class="sidebar-icon-btn" title="再監査">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.72 2.78L21 8M21 3v5h-5"/></svg>
+              </button>
+            </header>
+            <div id="layout-audit-summary" class="layout-audit-summary">
+              <div class="sidebar-empty sidebar-empty-compact">
+                <p class="sidebar-empty-desc">ページを読み込むと監査結果が表示されます</p>
+              </div>
+            </div>
+            <section class="sidebar-block">
+              <header class="sidebar-block-header">
+                <h4 class="sidebar-block-title">フレーム比較</h4>
+                <p class="sidebar-block-desc">各ビューポートの横スクロール有無</p>
+              </header>
+              <div id="layout-audit-frames" class="layout-audit-frames"></div>
+            </section>
+            <section class="sidebar-block">
+              <header class="sidebar-block-header sidebar-pane-header-row">
+                <div>
+                  <h4 class="sidebar-block-title">はみ出し要素</h4>
+                  <p class="sidebar-block-desc">選択フレームの原因候補（クリックでハイライト）</p>
+                </div>
+                <button type="button" id="btn-layout-overflow-outline" class="sidebar-icon-btn" title="ページ上にアウトライン表示">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M3 9h18M9 3v18"/></svg>
+                </button>
+              </header>
+              <ul id="layout-audit-offenders" class="layout-audit-offenders" aria-label="はみ出し要素一覧"></ul>
+            </section>
+          </div>
+
           <!-- TAB: Unified Console Logs -->
           <div id="tab-console" class="tab-pane">
             <header class="sidebar-pane-header sidebar-pane-header-row">
@@ -706,6 +757,8 @@
           <section class="shortcuts-section">
             <h4>フレーム</h4>
             <dl class="shortcut-list">
+              <div><dt>↑↓←→</dt><dd>1px 移動</dd></div>
+              <div><dt>Shift+矢印</dt><dd>10px 移動</dd></div>
               <div><dt>⌘D</dt><dd>複製</dd></div>
               <div><dt>Delete</dt><dd>削除</dd></div>
               <div><dt>Esc</dt><dd>選択解除</dd></div>

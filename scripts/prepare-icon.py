@@ -22,9 +22,10 @@ SIZE = 1024
 CORNER_RADIUS = int(SIZE * 0.2237)
 
 SOURCES = [
+    ROOT / "build" / "sashigane.png",
     Path.home()
     / ".cursor/projects/Users-yamanokazuki-Documents-GitHub-Sashigane/assets"
-    / "sashigane-ccc53209-f22e-4fb7-92cb-652e9ed67ce0.png",
+    / "sashigane-bc128a83-9cbe-45fa-8267-2fa65779f799.png",
     ROOT / "build" / "icon-source.jpg",
 ]
 

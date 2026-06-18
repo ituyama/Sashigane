@@ -2,6 +2,7 @@ const { ipcRenderer } = require('electron');
 
 let isSyncingScroll = false;
 let scrollTimeout = null;
+let syncCaptureEnabled = true;
 
 // Helper to generate a unique-ish CSS selector for any clicked/inputted element
 function getDomPath(el) {
@@ -87,7 +88,7 @@ function getUniqueSelector(el) {
 
 // Scroll Event
 window.addEventListener('scroll', () => {
-  if (isSyncingScroll) return;
+  if (!syncCaptureEnabled || isSyncingScroll) return;
 
   const scrollX = window.scrollX;
   const scrollY = window.scrollY;
@@ -117,11 +118,14 @@ window.addEventListener('click', (event) => {
     return;
   }
 
+  if (!syncCaptureEnabled) return;
+
   ipcRenderer.sendToHost('guest-click', { selector });
 }, true); // Capture phase
 
 // Input and Change Events (form elements)
 function handleInputEvent(event) {
+  if (!syncCaptureEnabled) return;
   if (!event.isTrusted) return;
 
   const el = event.target;
@@ -143,6 +147,10 @@ window.addEventListener('change', handleInputEvent, true);
 // -------------------------------------------------------------
 // RECEIVING COMMANDS FROM HOST
 // -------------------------------------------------------------
+
+ipcRenderer.on('set-sync-capture', (_event, enabled) => {
+  syncCaptureEnabled = Boolean(enabled);
+});
 
 ipcRenderer.on('sync-scroll', (event, data) => {
   isSyncingScroll = true;
@@ -316,6 +324,58 @@ function extractFaviconUrl() {
   }
 }
 
+function extractLayoutAudit() {
+  const doc = document.documentElement;
+  const body = document.body;
+  const viewportWidth = window.innerWidth;
+  const scrollWidth = Math.max(
+    doc.scrollWidth,
+    body?.scrollWidth || 0,
+    doc.offsetWidth,
+    body?.offsetWidth || 0,
+  );
+  const clientWidth = doc.clientWidth;
+  const overflowX = Math.max(0, scrollWidth - clientWidth);
+  const scrollHeight = Math.max(doc.scrollHeight, body?.scrollHeight || 0);
+  const overflowY = Math.max(0, scrollHeight - doc.clientHeight);
+
+  const offenders = [];
+  const seen = new Set();
+
+  for (const el of document.querySelectorAll('body *')) {
+    if (!(el instanceof HTMLElement)) continue;
+    const style = getComputedStyle(el);
+    if (style.display === 'none' || style.visibility === 'hidden') continue;
+
+    const rect = el.getBoundingClientRect();
+    if (rect.width < 1 || rect.height < 1) continue;
+    if (rect.right <= viewportWidth + 1) continue;
+
+    const selector = getUniqueSelector(el);
+    if (!selector || seen.has(selector)) continue;
+    seen.add(selector);
+
+    offenders.push({
+      selector,
+      tag: el.tagName.toLowerCase(),
+      right: Math.round(rect.right),
+      overflow: Math.round(rect.right - viewportWidth),
+    });
+    if (offenders.length >= 8) break;
+  }
+
+  return {
+    viewportWidth,
+    scrollWidth,
+    clientWidth,
+    overflowX,
+    overflowY,
+    hasHorizontalOverflow: overflowX > 1,
+    hasVerticalOverflow: overflowY > 1,
+    offenders,
+  };
+}
+
 function extractPageMetadata() {
   const title = document.title.trim();
   
@@ -417,6 +477,31 @@ window.addEventListener('DOMContentLoaded', () => {
 // Also respond to manual request for audits
 ipcRenderer.on('request-metadata', () => {
   ipcRenderer.sendToHost('guest-metadata', extractPageMetadata());
+});
+
+ipcRenderer.on('request-layout-audit', () => {
+  ipcRenderer.sendToHost('guest-layout-audit', extractLayoutAudit());
+});
+
+const LAYOUT_OVERFLOW_STYLE_ID = 'sashigane-layout-overflow-style';
+
+ipcRenderer.on('toggle-layout-overflow-outline', (_event, show) => {
+  let styleTag = document.getElementById(LAYOUT_OVERFLOW_STYLE_ID);
+  if (show) {
+    if (!styleTag) {
+      styleTag = document.createElement('style');
+      styleTag.id = LAYOUT_OVERFLOW_STYLE_ID;
+      styleTag.textContent = `
+        html body * {
+          outline: 1px solid rgba(239, 68, 68, 0.45) !important;
+          outline-offset: -1px !important;
+        }
+      `;
+      document.head.appendChild(styleTag);
+    }
+  } else if (styleTag) {
+    styleTag.remove();
+  }
 });
 
 function isScrollableElement(el) {

@@ -40,6 +40,9 @@ const homeUrlInput = document.getElementById('home-url-input');
 const homeBtnBlank = document.getElementById('home-btn-blank');
 const homeBtnUrl = document.getElementById('home-btn-url');
 const homeBtnLoad = document.getElementById('home-btn-load');
+const homeBtnLastLayout = document.getElementById('home-btn-last-layout');
+const btnAlignCenter = document.getElementById('btn-align-center');
+const btnArrangeRow = document.getElementById('btn-arrange-row');
 const homeRecentSection = document.getElementById('home-recent-section');
 const homeRecentGrid = document.getElementById('home-recent-grid');
 const homeRecentEmpty = document.getElementById('home-recent-empty');
@@ -53,7 +56,6 @@ const consoleLogsContainer = document.getElementById('console-logs-container');
 const btnClearConsole = document.getElementById('btn-clear-console');
 
 // Design / Properties panel
-const propsEmpty = document.getElementById('props-empty');
 const propsForm = document.getElementById('props-form');
 const propName = document.getElementById('prop-name');
 const propX = document.getElementById('prop-x');
@@ -90,6 +92,13 @@ const seoAuditList = document.getElementById('seo-audit-list');
 const seoAuditBadge = document.getElementById('seo-audit-badge');
 const btnSeoAuditRefresh = document.getElementById('btn-seo-audit-refresh');
 
+const layoutAuditSummary = document.getElementById('layout-audit-summary');
+const layoutAuditFrames = document.getElementById('layout-audit-frames');
+const layoutAuditOffenders = document.getElementById('layout-audit-offenders');
+const layoutAuditBadge = document.getElementById('layout-audit-badge');
+const btnLayoutAuditRefresh = document.getElementById('btn-layout-audit-refresh');
+const btnLayoutOverflowOutline = document.getElementById('btn-layout-overflow-outline');
+
 // Modal Elements
 const modalAddViewport = document.getElementById('modal-add-viewport');
 const modalBtnClose = document.getElementById('modal-btn-close');
@@ -112,8 +121,17 @@ const toastContainer = document.getElementById('toast-container');
 let syncEnabled = true;
 let cssOutlineEnabled = false;
 let activeVisionFilter = 'normal';
+let zoomToFitOnOpen = true;
+let tabHibernationEnabled = true;
+let breakpointHapticEnabled = true;
+let breakpointHapticVisualEnabled = true;
 let consoleLogs = [];
 let allBreakpoints = new Set();
+const viewportWidthTracker = new Map();
+const bpFlashTimers = new Map();
+const layoutAuditByFrame = new Map();
+let layoutOverflowOutlineEnabled = false;
+let layoutAuditRefreshTimer = null;
 let viewportIdCounter = 0;
 let browserTabIdCounter = 0;
 
@@ -146,6 +164,10 @@ let frameDragPointerX = 0;
 let frameDragPointerY = 0;
 let canvasTransformRaf = null;
 let transformSaveTimer = null;
+let zoomInertiaLogVel = 0;
+let zoomInertiaAnchor = null;
+let zoomInertiaRaf = null;
+let zoomInertiaLastTs = 0;
 
 let isResizingFrame = false;
 let resizeVpId = null;
@@ -187,6 +209,8 @@ let activeInspectorTab = 'styles';
 const WORKSPACE_STORAGE_KEY = 'sashigane-workspace-v1';
 const URL_HISTORY_KEY = 'sashigane-url-history';
 const FAVICON_CACHE_KEY = 'sashigane-favicon-cache';
+const LAST_LAYOUT_KEY = 'sashigane-last-layout';
+const HIBERNATION_HINT_KEY = 'sashigane-hibernation-hint-shown';
 const LEFT_PANEL_SPLIT_KEY = 'sashigane-left-panel-split';
 const LEFT_PANEL_SPLIT_MIN = 0.22;
 const LEFT_PANEL_SPLIT_MAX = 0.78;
@@ -473,6 +497,7 @@ function setCanvasTool(tool) {
   canvasTool = tool;
   spaceHandActive = false;
   updateToolUI();
+  scheduleWorkspacePersist();
 }
 
 function clampPan() {
@@ -542,6 +567,7 @@ function zoomAtViewportCenter(factor) {
 }
 
 function zoomToPercent(percent) {
+  cancelZoomInertia();
   const workspaceGrid = document.getElementById('workspace-grid');
   if (!workspaceGrid) return;
   const rect = workspaceGrid.getBoundingClientRect();
@@ -556,6 +582,7 @@ function isMetaKey(e) {
 }
 
 function zoomToFitBounds(minX, minY, maxX, maxY) {
+  cancelZoomInertia();
   const workspaceGrid = document.getElementById('workspace-grid');
   if (!workspaceGrid) return;
 
@@ -752,6 +779,12 @@ function getBoardMeta(url) {
 function renderHomeScreen() {
   if (!homeRecentGrid) return;
 
+  const hasLastLayout = Boolean(loadLastLayout());
+  if (homeBtnLastLayout) {
+    homeBtnLastLayout.disabled = !hasLastLayout;
+    homeBtnLastLayout.classList.toggle('is-disabled', !hasLastLayout);
+  }
+
   const recent = urlHistory.slice(0, 12);
   homeRecentGrid.innerHTML = '';
 
@@ -800,9 +833,14 @@ function renderHomeScreen() {
 
 function enterHomeScreen({ persist = true } = {}) {
   if (activeBrowserTabId !== null) {
+    saveLastLayout();
     setInspectMode(false);
     clearDomSelection();
     saveActiveTabState();
+  }
+
+  if (tabHibernationEnabled) {
+    suspendAllBrowserTabs();
   }
 
   activeBrowserTabId = null;
@@ -833,12 +871,15 @@ function goHome() {
   enterHomeScreen();
 }
 
-function openNewBrowserTab(url = 'https://example.com') {
+function openNewBrowserTab(url = 'https://example.com', { viewports: customViewports } = {}) {
   const normalized = normalizeUserUrl(url) || url;
-  const tab = createBrowserTab(normalized);
+  const tab = createBrowserTab(normalized, { viewports: customViewports });
   browserTabs.push(tab);
   renderBrowserTabPanel(tab);
   setActiveBrowserTab(tab.id);
+  if (zoomToFitOnOpen) {
+    requestAnimationFrame(() => zoomToFitAll());
+  }
   return tab;
 }
 
@@ -1022,6 +1063,12 @@ function setupGlobalShortcuts() {
       return;
     }
 
+    if (selectedViewportId !== null && ['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key)) {
+      e.preventDefault();
+      nudgeSelectedViewport(e.key, e.shiftKey ? 10 : 1);
+      return;
+    }
+
     if (e.key === 'v' || e.key === 'V') {
       setCanvasTool('select');
     } else if (e.key === 'h' || e.key === 'H') {
@@ -1094,6 +1141,7 @@ function commitCanvasTransform() {
 }
 
 function startCanvasPan(clientX, clientY) {
+  cancelZoomInertia();
   isPanning = true;
   panDragStartX = clientX;
   panDragStartY = clientY;
@@ -1318,10 +1366,14 @@ function flushFrameResize() {
   const dy = (resizePointerY - resizeStartY) / workspaceZoom;
   const next = computeResizedViewport(resizeOrigin, dx, dy, resizeDir);
 
+  const prevWidth = vp.width;
   vp.x = next.x;
   vp.y = next.y;
   vp.width = next.w;
   vp.height = next.h;
+  if (next.w !== prevWidth) {
+    notifyBreakpointCrossings(vp.id, prevWidth, next.w);
+  }
   syncViewportFrame(vp, tab);
 }
 
@@ -2828,15 +2880,232 @@ function renderUrlHistoryDatalist() {
   });
 }
 
+function capturePreferences() {
+  return {
+    syncEnabled,
+    cssOutlineEnabled,
+    activeVisionFilter,
+    canvasTool,
+    zoomToFitOnOpen,
+    tabHibernation: tabHibernationEnabled,
+    breakpointHaptic: breakpointHapticEnabled,
+    breakpointHapticVisual: breakpointHapticVisualEnabled,
+    leftPanelCollapsed: Boolean(leftPanel?.classList.contains('collapsed')),
+    sidebarCollapsed: Boolean(sidebarPanel?.classList.contains('collapsed')),
+  };
+}
+
+function applyPreferences(prefs) {
+  if (!prefs || typeof prefs !== 'object') return;
+
+  if (typeof prefs.syncEnabled === 'boolean') {
+    syncEnabled = prefs.syncEnabled;
+    btnToggleSync?.classList.toggle('active', syncEnabled);
+    applyUiTip(btnToggleSync, syncEnabled
+      ? '同期 ON — スクロール・クリック・入力を全フレームへ'
+      : '同期 OFF — クリックで有効化');
+    applySyncCaptureToAllWebviews();
+  }
+
+  if (typeof prefs.cssOutlineEnabled === 'boolean') {
+    cssOutlineEnabled = prefs.cssOutlineEnabled;
+    btnToggleOutline?.classList.toggle('active', cssOutlineEnabled);
+    btnInspectOutline?.classList.toggle('active', cssOutlineEnabled);
+    forEachWebview(wv => wv.send('toggle-css-outline', cssOutlineEnabled));
+  }
+
+  if (typeof prefs.activeVisionFilter === 'string') {
+    activeVisionFilter = prefs.activeVisionFilter;
+    document.querySelectorAll('input[name="vision-filter"]').forEach(radio => {
+      radio.checked = radio.value === activeVisionFilter;
+    });
+    forEachWebview(wv => wv.send('apply-vision-filter', activeVisionFilter));
+  }
+
+  if (prefs.canvasTool === 'hand' || prefs.canvasTool === 'select') {
+    setCanvasTool(prefs.canvasTool);
+  }
+
+  if (typeof prefs.zoomToFitOnOpen === 'boolean') {
+    zoomToFitOnOpen = prefs.zoomToFitOnOpen;
+  }
+
+  if (typeof prefs.tabHibernation === 'boolean') {
+    const wasEnabled = tabHibernationEnabled;
+    tabHibernationEnabled = prefs.tabHibernation;
+    if (!tabHibernationEnabled && wasEnabled) {
+      browserTabs.forEach(resumeBrowserTab);
+    } else if (tabHibernationEnabled && !wasEnabled && activeBrowserTabId !== null) {
+      browserTabs.forEach(tab => {
+        if (tab.id !== activeBrowserTabId) suspendBrowserTab(tab);
+      });
+    }
+  }
+
+  if (typeof prefs.breakpointHaptic === 'boolean') {
+    breakpointHapticEnabled = prefs.breakpointHaptic;
+  }
+
+  if (typeof prefs.breakpointHapticVisual === 'boolean') {
+    breakpointHapticVisualEnabled = prefs.breakpointHapticVisual;
+  }
+
+  if (leftPanel && btnToggleLeftPanel) {
+    const collapsed = Boolean(prefs.leftPanelCollapsed);
+    leftPanel.classList.toggle('collapsed', collapsed);
+    btnToggleLeftPanel.classList.toggle('active', !collapsed);
+  }
+
+  if (sidebarPanel && btnToggleSidebar) {
+    const collapsed = Boolean(prefs.sidebarCollapsed);
+    sidebarPanel.classList.toggle('collapsed', collapsed);
+    btnToggleSidebar.classList.toggle('active', !collapsed);
+  }
+}
+
+function saveLastLayout() {
+  const tab = getActiveTab();
+  if (!tab?.viewports?.length) return;
+
+  const layout = tab.viewports.map(vp => ({
+    name: vp.name,
+    width: vp.width,
+    height: vp.height,
+    x: vp.x,
+    y: vp.y,
+    ua: vp.ua || '',
+  }));
+
+  try {
+    localStorage.setItem(LAST_LAYOUT_KEY, JSON.stringify(layout));
+  } catch (error) {
+    console.warn('Failed to save last layout', error);
+  }
+}
+
+function loadLastLayout() {
+  try {
+    const raw = localStorage.getItem(LAST_LAYOUT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length > 0 ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function cloneViewportsFromTemplate(template) {
+  return template.map(vp => ({
+    id: ++viewportIdCounter,
+    name: vp.name || 'Frame',
+    width: vp.width,
+    height: vp.height,
+    x: vp.x,
+    y: vp.y,
+    ua: vp.ua || '',
+  }));
+}
+
+function nudgeSelectedViewport(key, step) {
+  const tab = getActiveTab();
+  const vp = tab?.viewports.find(v => v.id === selectedViewportId);
+  if (!vp || !tab) return;
+
+  if (key === 'ArrowLeft') vp.x -= step;
+  else if (key === 'ArrowRight') vp.x += step;
+  else if (key === 'ArrowUp') vp.y -= step;
+  else if (key === 'ArrowDown') vp.y += step;
+
+  syncViewportFrame(vp, tab);
+  updateCanvasSurface(tab);
+  renderPropertiesPanel();
+  renderLayersPanel();
+  saveActiveTabState();
+}
+
+function alignSelectedViewportCenter() {
+  const tab = getActiveTab();
+  const vp = tab?.viewports.find(v => v.id === selectedViewportId);
+  const grid = document.getElementById('workspace-grid');
+  if (!vp || !tab || !grid) {
+    showToast('中央へ移動するフレームを選択してください');
+    return;
+  }
+
+  const z = workspaceZoom;
+  const cx = (-panX + grid.clientWidth / 2) / z;
+  const cy = (-panY + grid.clientHeight / 2) / z;
+  vp.x = Math.round(cx - vp.width / 2);
+  vp.y = Math.round(cy - (vp.height + VIEWPORT_HEADER_H) / 2);
+
+  syncViewportFrame(vp, tab);
+  updateCanvasSurface(tab);
+  renderPropertiesPanel();
+  renderLayersPanel();
+  saveActiveTabState();
+  showToast(`「${vp.name}」を中央へ移動しました`);
+}
+
+function arrangeViewportsInRow() {
+  const tab = getActiveTab();
+  if (!tab?.viewports.length) return;
+
+  let x = CANVAS_PADDING;
+  const y = CANVAS_PADDING;
+  tab.viewports.forEach(vp => {
+    vp.x = x;
+    vp.y = y;
+    x += vp.width + FRAME_GAP;
+    syncViewportFrame(vp, tab);
+  });
+
+  updateCanvasSurface(tab);
+  renderLayersPanel();
+  saveActiveTabState();
+  if (zoomToFitOnOpen) zoomToFitAll();
+  showToast('フレームを横一列に整列しました');
+}
+
+function setFrameLoadError(vp, tab, errorCode, description) {
+  const uid = `${tab.id}-${vp.id}`;
+  const shell = document.getElementById(`vp-shell-${uid}`);
+  const banner = shell?.querySelector('.vp-error-banner');
+  const text = shell?.querySelector('.vp-error-text');
+  if (!shell || !banner || !text) return;
+
+  const code = errorCode ? ` (${errorCode})` : '';
+  text.textContent = `${description || 'ページを読み込めませんでした'}${code}`;
+  banner.hidden = false;
+  shell.classList.add('has-error');
+}
+
+function clearFrameLoadError(vp, tab) {
+  const uid = `${tab.id}-${vp.id}`;
+  const shell = document.getElementById(`vp-shell-${uid}`);
+  const banner = shell?.querySelector('.vp-error-banner');
+  if (!shell || !banner) return;
+
+  banner.hidden = true;
+  shell.classList.remove('has-error');
+}
+
+function reloadViewport(vp, tab = getActiveTab()) {
+  if (!vp || !tab) return;
+  clearFrameLoadError(vp, tab);
+  const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
+  if (webview) webview.reload();
+}
+
 function serializeWorkspace() {
   saveActiveTabState();
 
   return {
-    version: 1,
+    version: 2,
     activeBrowserTabId,
     browserTabIdCounter,
     viewportIdCounter,
     urlHistory,
+    preferences: capturePreferences(),
     browserTabs: browserTabs.map(tab => ({
       id: tab.id,
       title: tab.title,
@@ -2932,9 +3201,17 @@ function rebuildWorkspaceFromData(data) {
   }
 
   if (data.browserTabs.length === 0) {
+    applyPreferences(data.preferences);
     enterHomeScreen({ persist: false });
     return true;
   }
+
+  if (data.preferences && typeof data.preferences.tabHibernation === 'boolean') {
+    tabHibernationEnabled = data.preferences.tabHibernation;
+  }
+
+  const activeId = data.activeBrowserTabId;
+  const targetId = data.browserTabs.some(t => t.id === activeId) ? activeId : data.browserTabs[0].id;
 
   data.browserTabs.forEach(tabState => {
     const tab = {
@@ -2955,16 +3232,15 @@ function rebuildWorkspaceFromData(data) {
       panY: tabState.panY ?? 0,
       workspaceZoom: tabState.workspaceZoom ?? 1,
       selectedViewportId: tabState.selectedViewportId ?? null,
+      hibernated: false,
     };
 
     tab.viewports.forEach(ensureViewportUa);
     ensureViewportPositions(tab.viewports);
     browserTabs.push(tab);
-    renderBrowserTabPanel(tab);
+    const hibernated = tabHibernationEnabled && tab.id !== targetId;
+    renderBrowserTabPanel(tab, { hibernated });
   });
-
-  const activeId = data.activeBrowserTabId;
-  const targetId = browserTabs.some(t => t.id === activeId) ? activeId : browserTabs[0].id;
 
   if (Array.isArray(data.urlHistory)) {
     urlHistory = data.urlHistory;
@@ -2974,6 +3250,10 @@ function rebuildWorkspaceFromData(data) {
 
   setActiveBrowserTab(targetId);
   renderLayersPanel();
+  applyPreferences(data.preferences);
+  if (zoomToFitOnOpen && !isHomeActive()) {
+    requestAnimationFrame(() => zoomToFitAll());
+  }
   return true;
 }
 
@@ -3019,9 +3299,13 @@ const FIGMA_ZOOM_PRESETS = [
   0.02, 0.03, 0.05, 0.08, 0.10, 0.13, 0.20, 0.25, 0.33, 0.50, 0.67, 0.75,
   0.80, 0.90, 1.00, 1.10, 1.25, 1.50, 1.75, 2.00, 2.50, 3.00, 4.00, 5.00, 6.00, 8.00,
 ];
-const FIGMA_WHEEL_GAIN = 1.22;
-const FIGMA_WHEEL_EXPONENT = 0.0105;
-const FIGMA_WHEEL_DELTA_CAP = 140;
+const FIGMA_WHEEL_GAIN = 1.30;
+const FIGMA_WHEEL_EXPONENT = 0.012;
+const FIGMA_WHEEL_DELTA_CAP = 150;
+const ZOOM_INERTIA_COAST_GAIN = 0.72;
+const ZOOM_INERTIA_APPLY = 0.34;
+const ZOOM_INERTIA_FRICTION = 0.90;
+const ZOOM_INERTIA_STOP = 0.0002;
 const PAN_OVERSCROLL = 1200;
 
 function getWheelZoomFactor(deltaY) {
@@ -3032,7 +3316,53 @@ function getWheelZoomFactor(deltaY) {
   return Math.exp(scaledDelta * FIGMA_WHEEL_EXPONENT);
 }
 
+function cancelZoomInertia() {
+  zoomInertiaLogVel = 0;
+  zoomInertiaAnchor = null;
+  if (zoomInertiaRaf) {
+    cancelAnimationFrame(zoomInertiaRaf);
+    zoomInertiaRaf = null;
+  }
+}
+
+function tickZoomInertia(now) {
+  if (!zoomInertiaAnchor) {
+    cancelZoomInertia();
+    return;
+  }
+
+  const dt = Math.min(48, now - zoomInertiaLastTs) / 16.67;
+  zoomInertiaLastTs = now;
+
+  if (Math.abs(zoomInertiaLogVel) < ZOOM_INERTIA_STOP) {
+    cancelZoomInertia();
+    commitCanvasTransform();
+    return;
+  }
+
+  const step = zoomInertiaLogVel * ZOOM_INERTIA_APPLY * dt;
+  zoomAtScreenPoint(Math.exp(step), zoomInertiaAnchor.x, zoomInertiaAnchor.y);
+  zoomInertiaLogVel *= Math.pow(ZOOM_INERTIA_FRICTION, dt);
+
+  zoomInertiaRaf = requestAnimationFrame(tickZoomInertia);
+}
+
+function addZoomWheelInertia(dy, clientX, clientY) {
+  const factor = getWheelZoomFactor(dy);
+  if (Math.abs(factor - 1) < 0.0001) return;
+
+  zoomAtScreenPoint(factor, clientX, clientY);
+  zoomInertiaLogVel += Math.log(factor) * ZOOM_INERTIA_COAST_GAIN;
+  zoomInertiaAnchor = { x: clientX, y: clientY };
+
+  if (!zoomInertiaRaf) {
+    zoomInertiaLastTs = performance.now();
+    zoomInertiaRaf = requestAnimationFrame(tickZoomInertia);
+  }
+}
+
 function stepZoomPreset(direction) {
+  cancelZoomInertia();
   const current = workspaceZoom;
   if (direction > 0) {
     const next = FIGMA_ZOOM_PRESETS.find((preset) => preset > current + 0.0005);
@@ -3339,17 +3669,22 @@ function syncAllViewportFavicons(tab) {
   tab.viewports.forEach(vp => syncViewportFavicon(vp, tab));
 }
 
-function createBrowserTab(url = 'https://example.com') {
+function createBrowserTab(url = 'https://example.com', { viewports: customViewports } = {}) {
+  const viewportsList = customViewports?.length
+    ? cloneViewportsFromTemplate(customViewports)
+    : createDefaultViewports();
+
   return {
     id: ++browserTabIdCounter,
     title: tabTitleFromUrl(url),
     url,
     faviconUrl: null,
-    viewports: createDefaultViewports(),
+    viewports: viewportsList,
     panX: 0,
     panY: 0,
     workspaceZoom: 1.0,
     selectedViewportId: null,
+    hibernated: false,
   };
 }
 
@@ -3373,6 +3708,7 @@ function saveActiveTabState() {
   tab.panY = panY;
   tab.workspaceZoom = workspaceZoom;
   tab.selectedViewportId = selectedViewportId;
+  saveLastLayout();
   scheduleWorkspacePersist();
 }
 
@@ -3565,16 +3901,21 @@ function handleWorkspaceWheel(e) {
   const isZoomGesture = e.ctrlKey || e.metaKey;
   if (isZoomGesture) {
     e.preventDefault();
-    const factor = getWheelZoomFactor(dy);
-    zoomAtScreenPoint(factor, e.clientX, e.clientY);
-    commitCanvasTransform();
+    addZoomWheelInertia(dy, e.clientX, e.clientY);
     return;
   }
 
+  cancelZoomInertia();
   e.preventDefault();
 
-  const wantsCanvasPan = isHandToolActive() || e.shiftKey;
-  const webview = wantsCanvasPan ? null : getWebviewAtPoint(e.clientX, e.clientY);
+  const selectedVp = getSelectedViewport();
+  const wantsCanvasPan = isHandToolActive() || e.shiftKey || !selectedVp;
+  let webview = wantsCanvasPan ? null : getWebviewAtPoint(e.clientX, e.clientY);
+
+  if (webview && selectedVp) {
+    const expectedId = `wv-${getActiveTab()?.id}-${selectedVp.id}`;
+    if (webview.id !== expectedId) webview = null;
+  }
 
   if (webview && scrollWebviewBy(webview, dx, dy, e.clientX, e.clientY)) {
     return;
@@ -3614,6 +3955,7 @@ function selectViewport(vpId) {
   tab.viewports.forEach(vp => syncViewportFrame(vp, tab));
   renderPropertiesPanel();
   renderLayersPanel();
+  if (isLayoutAuditPanelVisible()) renderLayoutAuditPanel();
   if (inspectModeActive) setInspectMode(true);
   if (vpId !== null) activateDesignTab();
 }
@@ -3642,16 +3984,14 @@ function activateDesignTab() {
 }
 
 function renderPropertiesPanel() {
-  if (!propsEmpty || !propsForm) return;
+  if (!propsForm) return;
 
   const vp = getSelectedViewport();
   if (!vp) {
-    propsEmpty.hidden = false;
     propsForm.hidden = true;
     return;
   }
 
-  propsEmpty.hidden = true;
   propsForm.hidden = false;
   propName.value = vp.name;
   propX.value = vp.x;
@@ -3680,7 +4020,11 @@ function applyViewportFromProperties(field, rawValue) {
     if (field === 'x') vp.x = num;
     if (field === 'y') vp.y = num;
     if (field === 'w') {
+      const prevWidth = vp.width;
       vp.width = Math.min(3840, Math.max(200, num));
+      if (vp.width !== prevWidth) {
+        notifyBreakpointCrossings(vp.id, prevWidth, vp.width);
+      }
       if (!vp.ua) {
         vp.ua = inferUaForSize(vp.width);
         applyViewportUserAgent(vp, tab, { reload: false });
@@ -3717,6 +4061,8 @@ function applyViewportSize(vp, tab) {
   if (vp.webContentsId) {
     window.electronAPI.setDeviceEmulation(vp.webContentsId, vp.width, vp.height);
   }
+
+  scheduleLayoutAuditRefresh(vp, tab);
 }
 
 function setupPropertiesPanel() {
@@ -3909,6 +4255,20 @@ async function init() {
   renderLayersPanel();
   showWelcomeHint();
 
+  const rawPrefs = localStorage.getItem(WORKSPACE_STORAGE_KEY);
+  if (rawPrefs && isHomeActive()) {
+    try {
+      applyPreferences(JSON.parse(rawPrefs).preferences);
+    } catch {
+      // ignore
+    }
+  } else {
+    applyUiTip(btnToggleSync, syncEnabled
+      ? '同期 ON — スクロール・クリック・入力を全フレームへ'
+      : '同期 OFF — クリックで有効化');
+  }
+  applySyncCaptureToAllWebviews();
+
   window.addEventListener('beforeunload', () => {
     persistWorkspaceToStorage();
   });
@@ -3962,7 +4322,17 @@ function setupEventListeners() {
   });
 
   homeBtnBlank?.addEventListener('click', () => {
-    openNewBrowserTab('https://example.com');
+    openNewBrowserTab(urlHistory[0] || 'https://example.com');
+  });
+
+  homeBtnLastLayout?.addEventListener('click', () => {
+    const layout = loadLastLayout();
+    if (!layout) {
+      showToast('保存された構成がありません');
+      return;
+    }
+    const url = normalizeUserUrl(homeUrlInput?.value) || urlHistory[0] || 'https://example.com';
+    openNewBrowserTab(url, { viewports: layout });
   });
 
   homeBtnUrl?.addEventListener('click', () => {
@@ -3978,7 +4348,12 @@ function setupEventListeners() {
   btnToggleSync.addEventListener('click', () => {
     syncEnabled = !syncEnabled;
     btnToggleSync.classList.toggle('active', syncEnabled);
+    applyUiTip(btnToggleSync, syncEnabled
+      ? '同期 ON — スクロール・クリック・入力を全フレームへ'
+      : '同期 OFF — クリックで有効化');
+    applySyncCaptureToAllWebviews();
     showToast(syncEnabled ? 'イベント同期を有効化しました' : 'イベント同期を無効化しました');
+    scheduleWorkspacePersist();
   });
 
   // Theme Toggle
@@ -3993,6 +4368,7 @@ function setupEventListeners() {
       wv.send('toggle-css-outline', cssOutlineEnabled);
     });
     showToast(cssOutlineEnabled ? 'アウトライン表示をONにしました' : 'アウトライン表示をOFFにしました');
+    scheduleWorkspacePersist();
   });
 
   // Screen Capture All Button
@@ -4051,13 +4427,18 @@ function setupEventListeners() {
   btnToggleLeftPanel?.addEventListener('click', () => {
     const isCollapsed = leftPanel?.classList.toggle('collapsed');
     btnToggleLeftPanel.classList.toggle('active', !isCollapsed);
+    scheduleWorkspacePersist();
   });
 
   // Toggle Sidebar
   btnToggleSidebar.addEventListener('click', () => {
     const isCollapsed = sidebarPanel.classList.toggle('collapsed');
     btnToggleSidebar.classList.toggle('active', !isCollapsed);
+    scheduleWorkspacePersist();
   });
+
+  btnAlignCenter?.addEventListener('click', () => alignSelectedViewportCenter());
+  btnArrangeRow?.addEventListener('click', () => arrangeViewportsInRow());
 
   // Sidebar Tabs
   tabButtons.forEach(btn => {
@@ -4068,7 +4449,28 @@ function setupEventListeners() {
       btn.classList.add('active');
       const paneId = btn.dataset.tab;
       document.getElementById(paneId).classList.add('active');
+
+      if (paneId === 'tab-seo' || paneId === 'tab-seo-audit' || paneId === 'tab-outline') {
+        requestSeoAuditRefresh();
+      }
+      if (paneId === 'tab-layout') {
+        requestLayoutAuditAll();
+      }
     });
+  });
+
+  btnLayoutAuditRefresh?.addEventListener('click', () => {
+    requestLayoutAuditAll();
+    showToast('レイアウト監査を更新しています…');
+  });
+
+  btnLayoutOverflowOutline?.addEventListener('click', () => {
+    layoutOverflowOutlineEnabled = !layoutOverflowOutlineEnabled;
+    btnLayoutOverflowOutline.classList.toggle('active', layoutOverflowOutlineEnabled);
+    forEachWebview(wv => {
+      wv.send('toggle-layout-overflow-outline', layoutOverflowOutlineEnabled);
+    });
+    showToast(layoutOverflowOutlineEnabled ? 'はみ出しアウトラインを表示' : 'はみ出しアウトラインを非表示');
   });
 
   // Vision Filter Selection
@@ -4086,6 +4488,7 @@ function setupEventListeners() {
         wv.send('apply-vision-filter', activeVisionFilter);
       });
       showToast(`視覚特性フィルター: ${e.target.closest('.vision-option').querySelector('.vision-title').innerText}`);
+      scheduleWorkspacePersist();
     });
   });
 
@@ -4147,12 +4550,232 @@ function syncViewportFrame(vp, tab) {
     uaBadge.textContent = label;
     uaBadge.classList.toggle('is-desktop', label === 'Desktop');
   }
+
+  const primaryBadge = card.querySelector('.vp-primary-badge');
+  if (primaryBadge) {
+    const isPrimary = tab.viewports[0]?.id === vp.id;
+    primaryBadge.hidden = !isPrimary;
+  }
 }
 
 function syncAllViewportFrames() {
   const tab = getActiveTab();
   if (!tab) return;
   tab.viewports.forEach(vp => syncViewportFrame(vp, tab));
+}
+
+function suspendBrowserTab(tab) {
+  if (!tab || tab.hibernated) return;
+
+  const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+  if (canvas) canvas.innerHTML = '';
+
+  tab.viewports.forEach(vp => {
+    vp.webContentsId = undefined;
+  });
+  tab.hibernated = true;
+}
+
+function suspendAllBrowserTabs() {
+  browserTabs.forEach(suspendBrowserTab);
+}
+
+function maybeShowHibernationHint() {
+  if (!tabHibernationEnabled || localStorage.getItem(HIBERNATION_HINT_KEY)) return;
+  localStorage.setItem(HIBERNATION_HINT_KEY, '1');
+  showToast('メモリ節約のため、非表示タブは休止しています');
+}
+
+function resumeBrowserTab(tab) {
+  if (!tab || !tab.hibernated) return;
+
+  const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+  if (!canvas) return;
+
+  ensureViewportPositions(tab.viewports);
+  tab.viewports.forEach(vp => renderViewport(vp, tab, canvas));
+  updateCanvasSurface(tab);
+  tab.hibernated = false;
+  applySyncCaptureToTab(tab);
+  maybeShowHibernationHint();
+}
+
+function applySyncCaptureToWebview(webview) {
+  if (!webview) return;
+  try {
+    webview.send('set-sync-capture', syncEnabled);
+  } catch {
+    // webview may not be ready yet
+  }
+}
+
+function applySyncCaptureToTab(tab) {
+  if (!tab) return;
+  tab.viewports.forEach(vp => {
+    applySyncCaptureToWebview(document.getElementById(`wv-${tab.id}-${vp.id}`));
+  });
+}
+
+function applySyncCaptureToAllWebviews() {
+  forEachWebview(applySyncCaptureToWebview);
+}
+
+function isSeoMetadataPanelVisible() {
+  return Boolean(
+    document.getElementById('tab-seo')?.classList.contains('active')
+    || document.getElementById('tab-seo-audit')?.classList.contains('active')
+    || document.getElementById('tab-outline')?.classList.contains('active')
+  );
+}
+
+function requestPrimaryMetadataIfNeeded(tab = getActiveTab()) {
+  if (!isSeoMetadataPanelVisible() || !tab?.viewports?.length) return;
+  const vp = tab.viewports[0];
+  const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
+  if (webview) webview.send('request-metadata');
+}
+
+function layoutAuditKey(tabId, vpId) {
+  return `${tabId}-${vpId}`;
+}
+
+function isLayoutAuditPanelVisible() {
+  return Boolean(document.getElementById('tab-layout')?.classList.contains('active'));
+}
+
+function requestLayoutAuditForViewport(vp, tab = getActiveTab()) {
+  if (!vp || !tab) return;
+  const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
+  if (webview) webview.send('request-layout-audit');
+}
+
+function requestLayoutAuditAll(tab = getActiveTab()) {
+  if (!tab?.viewports?.length) return;
+  tab.viewports.forEach(vp => requestLayoutAuditForViewport(vp, tab));
+}
+
+function scheduleLayoutAuditRefresh(vp, tab = getActiveTab()) {
+  if (!isLayoutAuditPanelVisible() || !vp || !tab) return;
+  if (layoutAuditRefreshTimer) clearTimeout(layoutAuditRefreshTimer);
+  layoutAuditRefreshTimer = setTimeout(() => {
+    layoutAuditRefreshTimer = null;
+    requestLayoutAuditForViewport(vp, tab);
+  }, 300);
+}
+
+function handleGuestLayoutAudit(vp, tab, data) {
+  if (!vp || !tab || !data) return;
+  layoutAuditByFrame.set(layoutAuditKey(tab.id, vp.id), data);
+  if (tab.id === activeBrowserTabId) {
+    renderLayoutAuditPanel();
+  }
+}
+
+function renderLayoutAuditPanel() {
+  const tab = getActiveTab();
+  if (!layoutAuditSummary || !layoutAuditFrames || !layoutAuditOffenders) return;
+
+  if (!tab?.viewports?.length) {
+    layoutAuditSummary.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">フレームがありません</p></div>';
+    layoutAuditFrames.innerHTML = '';
+    layoutAuditOffenders.innerHTML = '';
+    if (layoutAuditBadge) layoutAuditBadge.style.display = 'none';
+    return;
+  }
+
+  let overflowCount = 0;
+  layoutAuditFrames.innerHTML = '';
+
+  tab.viewports.forEach(vp => {
+    const audit = layoutAuditByFrame.get(layoutAuditKey(tab.id, vp.id));
+    const hasOverflow = Boolean(audit?.hasHorizontalOverflow);
+    if (hasOverflow) overflowCount += 1;
+
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = `layout-audit-frame${hasOverflow ? ' has-overflow' : ''}${vp.id === selectedViewportId ? ' is-selected' : ''}`;
+    const status = audit
+      ? (hasOverflow ? `+${audit.overflowX}px` : 'OK')
+      : '—';
+    row.innerHTML = `
+      <span class="layout-audit-frame-name">${escapeHTML(vp.name)}</span>
+      <span class="layout-audit-frame-size">${vp.width}px</span>
+      <span class="layout-audit-frame-status">${status}</span>
+    `;
+    row.addEventListener('click', () => {
+      selectViewport(vp.id);
+      renderLayoutAuditPanel();
+    });
+    layoutAuditFrames.appendChild(row);
+  });
+
+  layoutAuditSummary.innerHTML = '';
+  if (overflowCount === 0) {
+    const ok = document.createElement('div');
+    ok.className = 'layout-audit-stat is-ok';
+    ok.textContent = '全フレームで横スクロールなし';
+    layoutAuditSummary.appendChild(ok);
+  } else {
+    const err = document.createElement('div');
+    err.className = 'layout-audit-stat is-error';
+    err.textContent = `${overflowCount} フレームで横スクロールを検出`;
+    layoutAuditSummary.appendChild(err);
+  }
+
+  if (layoutAuditBadge) {
+    if (overflowCount > 0) {
+      layoutAuditBadge.textContent = String(overflowCount);
+      layoutAuditBadge.style.display = '';
+      layoutAuditBadge.classList.add('is-error');
+    } else {
+      layoutAuditBadge.style.display = 'none';
+      layoutAuditBadge.classList.remove('is-error');
+    }
+  }
+
+  const selectedVp = tab.viewports.find(v => v.id === selectedViewportId) || tab.viewports[0];
+  const selectedAudit = layoutAuditByFrame.get(layoutAuditKey(tab.id, selectedVp.id));
+  layoutAuditOffenders.innerHTML = '';
+
+  if (!selectedAudit) {
+    const li = document.createElement('li');
+    li.className = 'layout-audit-empty';
+    li.textContent = '監査データがありません。再監査を実行してください。';
+    layoutAuditOffenders.appendChild(li);
+    return;
+  }
+
+  if (!selectedAudit.hasHorizontalOverflow) {
+    const li = document.createElement('li');
+    li.className = 'layout-audit-empty';
+    li.textContent = `「${selectedVp.name}」に横スクロールはありません。`;
+    layoutAuditOffenders.appendChild(li);
+    return;
+  }
+
+  const offenders = selectedAudit.offenders || [];
+  if (!offenders.length) {
+    const li = document.createElement('li');
+    li.className = 'layout-audit-empty';
+    li.textContent = `横スクロール ${selectedAudit.overflowX}px（原因要素は特定できませんでした）`;
+    layoutAuditOffenders.appendChild(li);
+    return;
+  }
+
+  offenders.forEach(item => {
+    const li = document.createElement('li');
+    li.className = 'layout-audit-offender';
+    li.innerHTML = `
+      <span class="layout-audit-offender-tag">&lt;${escapeHTML(item.tag)}&gt;</span>
+      <span class="layout-audit-offender-meta">+${item.overflow}px はみ出し</span>
+      <code class="layout-audit-offender-sel">${escapeHTML(item.selector)}</code>
+    `;
+    li.addEventListener('click', () => {
+      selectViewport(selectedVp.id);
+      highlightDomElement(selectedVp, tab, item.selector);
+    });
+    layoutAuditOffenders.appendChild(li);
+  });
 }
 
 function setActiveBrowserTab(id) {
@@ -4163,9 +4786,17 @@ function setActiveBrowserTab(id) {
     setInspectMode(false);
     clearDomSelection();
     saveActiveTabState();
+    if (tabHibernationEnabled) {
+      const prevTab = browserTabs.find(t => t.id === previousId);
+      if (prevTab) suspendBrowserTab(prevTab);
+    }
   }
 
   activeBrowserTabId = id;
+  const tab = getActiveTab();
+  if (tabHibernationEnabled && tab) {
+    resumeBrowserTab(tab);
+  }
   loadActiveTabState();
 
   document.querySelectorAll('.browser-tab-panel').forEach(panel => {
@@ -4186,6 +4817,20 @@ function closeBrowserTab(tabId) {
   if (idx === -1) return;
 
   const tab = browserTabs[idx];
+  if (tab.viewports?.length) {
+    try {
+      localStorage.setItem(LAST_LAYOUT_KEY, JSON.stringify(tab.viewports.map(vp => ({
+        name: vp.name,
+        width: vp.width,
+        height: vp.height,
+        x: vp.x,
+        y: vp.y,
+        ua: vp.ua || '',
+      }))));
+    } catch {
+      // ignore
+    }
+  }
   const panel = document.getElementById(`bt-panel-${tabId}`);
   if (panel) panel.remove();
 
@@ -4255,7 +4900,7 @@ function renderBrowserTabs() {
   setupUiTooltips(browserTabsEl);
 }
 
-function renderBrowserTabPanel(tab) {
+function renderBrowserTabPanel(tab, { hibernated = false } = {}) {
   const panel = document.createElement('div');
   panel.className = 'browser-tab-panel';
   panel.id = `bt-panel-${tab.id}`;
@@ -4267,9 +4912,13 @@ function renderBrowserTabPanel(tab) {
   panel.appendChild(canvas);
 
   browserTabPanels.appendChild(panel);
-  ensureViewportPositions(tab.viewports);
-  tab.viewports.forEach(vp => renderViewport(vp, tab, canvas));
-  updateCanvasSurface(tab);
+  tab.hibernated = hibernated;
+
+  if (!hibernated) {
+    ensureViewportPositions(tab.viewports);
+    tab.viewports.forEach(vp => renderViewport(vp, tab, canvas));
+    updateCanvasSurface(tab);
+  }
 }
 
 function removeViewport(vpId) {
@@ -4368,6 +5017,7 @@ function navigateAll(url) {
   pushUrlHistory(normalized);
 
   tab.viewports.forEach(vp => {
+    clearFrameLoadError(vp, tab);
     invalidateDomTree(vp, tab);
     const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
     if (webview) webview.src = normalized;
@@ -4392,6 +5042,7 @@ function renderViewport(vp, tab, canvas) {
   header.innerHTML = `
     <div class="vp-drag-handle" title="ドラッグして移動">
       <span class="vp-frame-icon" aria-hidden="true"></span>
+      <span class="vp-primary-badge"${tab.viewports[0]?.id === vp.id ? '' : ' hidden'}>Primary</span>
       <span class="vp-name">${escapeHTML(vp.name)}</span>
       <span class="vp-ua-badge ${getUaLabel(vp) === 'Desktop' ? 'is-desktop' : ''}">${escapeHTML(getUaLabel(vp))}</span>
       <span class="vp-size">${vp.width} × ${vp.height} px</span>
@@ -4421,10 +5072,19 @@ function renderViewport(vp, tab, canvas) {
   loading.innerHTML = '<div class="vp-loading-spinner" aria-hidden="true"></div>';
   wrapper.appendChild(loading);
 
+  const errorBanner = document.createElement('div');
+  errorBanner.className = 'vp-error-banner';
+  errorBanner.hidden = true;
+  errorBanner.innerHTML = `
+    <span class="vp-error-text">ページを読み込めませんでした</span>
+    <button type="button" class="vp-error-retry">再読み込み</button>
+  `;
+  wrapper.appendChild(errorBanner);
+
   const webview = document.createElement('webview');
   webview.id = `wv-${uid}`;
   webview.setAttribute('preload', 'preload-webview.js');
-  webview.setAttribute('webpreferences', 'contextIsolation=true, nodeIntegration=false');
+  webview.setAttribute('webpreferences', 'contextIsolation=true, nodeIntegration=false,backgroundThrottling=true');
   webview.setAttribute('allowpopups', '');
   if (vp.ua) webview.setAttribute('useragent', vp.ua);
 
@@ -4466,6 +5126,10 @@ function renderViewport(vp, tab, canvas) {
     if (vp.webContentsId) window.electronAPI.openWebviewDevTools(vp.webContentsId);
   });
   header.querySelector('.close').addEventListener('click', () => removeViewport(vp.id));
+  errorBanner.querySelector('.vp-error-retry')?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    reloadViewport(vp, tab);
+  });
 
   header.addEventListener('dblclick', (e) => {
     e.preventDefault();
@@ -4493,6 +5157,7 @@ function setupWebviewHooks(webview, vp, tab) {
 
   webview.addEventListener('did-start-loading', () => {
     setLoading(true);
+    clearFrameLoadError(vp, tab);
     invalidateDomTree(vp, tab);
     if (tab.viewports[0]?.id === vp.id) {
       setTabFavicon(tab, null);
@@ -4500,15 +5165,24 @@ function setupWebviewHooks(webview, vp, tab) {
   });
   webview.addEventListener('did-stop-loading', () => {
     setLoading(false);
+    clearFrameLoadError(vp, tab);
     if (tab.viewports[0]?.id === vp.id) {
-      webview.send('request-metadata');
+      requestPrimaryMetadataIfNeeded(tab);
+    }
+    if (isLayoutAuditPanelVisible()) {
+      requestLayoutAuditForViewport(vp, tab);
     }
     const frameKey = domTreeKey(tab.id, vp.id);
     if (domTreeExpandedFrames.has(frameKey)) {
       requestDomTree(vp, tab);
     }
   });
-  webview.addEventListener('did-fail-load', () => setLoading(false));
+  webview.addEventListener('did-fail-load', (e) => {
+    setLoading(false);
+    if (e.isMainFrame === false) return;
+    if (e.errorCode === -3) return;
+    setFrameLoadError(vp, tab, e.errorCode, e.errorDescription);
+  });
 
   // DOM Ready
   webview.addEventListener('dom-ready', () => {
@@ -4520,11 +5194,16 @@ function setupWebviewHooks(webview, vp, tab) {
 
     window.electronAPI.setUserAgent(vp.webContentsId, vp.ua || '');
 
+    applySyncCaptureToWebview(webview);
+
     if (cssOutlineEnabled) {
       webview.send('toggle-css-outline', true);
     }
     if (activeVisionFilter !== 'normal') {
       webview.send('apply-vision-filter', activeVisionFilter);
+    }
+    if (layoutOverflowOutlineEnabled) {
+      webview.send('toggle-layout-overflow-outline', true);
     }
   });
 
@@ -4585,6 +5264,10 @@ function setupWebviewHooks(webview, vp, tab) {
     }
     if (channel === 'guest-element-info') {
       handleGuestElementInfo(vp, tab, data);
+      return;
+    }
+    if (channel === 'guest-layout-audit') {
+      handleGuestLayoutAudit(vp, tab, data);
       return;
     }
     if (channel === 'guest-inspect-pick') {
@@ -4665,6 +5348,50 @@ function setupWebviewHooks(webview, vp, tab) {
 // Breakpoint Ruler Logic
 // -------------------------------------------------------------
 
+function getCrossedBreakpoints(prevWidth, newWidth, breakpoints) {
+  const prev = Math.round(prevWidth);
+  const next = Math.round(newWidth);
+  if (prev === next || !breakpoints?.size) return [];
+  return [...breakpoints].filter(bp =>
+    (prev < bp && next >= bp) || (prev >= bp && next < bp)
+  );
+}
+
+function flashBreakpointMarkers(bps) {
+  if (!breakpointHapticVisualEnabled || !bps.length || !breakpointRuler) return;
+
+  bps.forEach(bp => {
+    const marker = breakpointRuler.querySelector(`.bp-marker[data-bp="${bp}"]`);
+    if (!marker) return;
+
+    marker.classList.add('is-flash');
+    const key = String(bp);
+    if (bpFlashTimers.has(key)) clearTimeout(bpFlashTimers.get(key));
+    const timer = setTimeout(() => {
+      marker.classList.remove('is-flash');
+      bpFlashTimers.delete(key);
+    }, 400);
+    bpFlashTimers.set(key, timer);
+  });
+}
+
+function triggerBreakpointHaptic() {
+  if (!breakpointHapticEnabled) return;
+  window.electronAPI?.performHaptic?.('alignment');
+}
+
+function notifyBreakpointCrossings(vpId, prevWidth, newWidth) {
+  if (isHomeActive() || !allBreakpoints.size) return;
+
+  const crossed = getCrossedBreakpoints(prevWidth, newWidth, allBreakpoints);
+  viewportWidthTracker.set(vpId, Math.round(newWidth));
+
+  if (!crossed.length) return;
+
+  triggerBreakpointHaptic();
+  flashBreakpointMarkers(crossed);
+}
+
 function updateBreakpointsRuler(breakpoints) {
   if (!breakpoints || breakpoints.length === 0) return;
 
@@ -4682,12 +5409,13 @@ function updateBreakpointsRuler(breakpoints) {
   const sortedBreakpoints = Array.from(allBreakpoints).sort((a, b) => a - b);
   sortedBreakpoints.forEach(bp => {
     const badge = document.createElement('button');
+    badge.type = 'button';
     badge.className = 'bp-marker';
+    badge.dataset.bp = String(bp);
     badge.innerHTML = `<span>${bp}px</span>`;
     badge.title = `幅を ${bp}px にリサイズ`;
     
     badge.addEventListener('click', () => {
-      // Resize the first viewport to match this breakpoint
       const primaryVp = viewports[0];
       if (primaryVp) {
         resizeViewport(primaryVp.id, bp);
@@ -4705,7 +5433,11 @@ function resizeViewport(vpId, width) {
   const vp = tab.viewports.find(v => v.id === vpId);
   if (!vp) return;
 
+  const prevWidth = vp.width;
   vp.width = width;
+  if (width !== prevWidth) {
+    notifyBreakpointCrossings(vp.id, prevWidth, width);
+  }
   applyViewportSize(vp, tab);
   renderPropertiesPanel();
 }

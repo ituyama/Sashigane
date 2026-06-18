@@ -16,4 +16,5 @@ contextBridge.exposeInMainWorld('electronAPI', {
   writePersistedWorkspace: (json) => ipcRenderer.invoke('write-persisted-workspace', json),
   onBeforeQuit: (callback) => ipcRenderer.on('app-before-quit', callback),
   ackBeforeQuit: () => ipcRenderer.send('app-before-quit-done'),
+  performHaptic: (pattern = 'alignment') => ipcRenderer.invoke('perform-haptic', pattern),
 });
