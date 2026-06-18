@@ -1,16 +1,46 @@
 const { app, BrowserWindow, ipcMain, webContents, dialog, nativeTheme } = require('electron');
 const path = require('path');
 const fs = require('fs');
-
-let HapticFeedback;
-try {
-  HapticFeedback = require('haptic-feedback-swift').HapticFeedback;
-} catch {
-  // optional — visual fallback only when unavailable
-}
+const { spawn } = require('child_process');
 
 let mainWindow = null;
 let isQuitting = false;
+let hapticBinaryPath = null;
+
+function getHapticBinaryPath() {
+  if (hapticBinaryPath) return hapticBinaryPath;
+
+  const candidates = [
+    path.join(__dirname, 'build', 'HapticFeedback'),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'build', 'HapticFeedback'),
+    path.join(process.resourcesPath, 'app.asar.unpacked', 'node_modules', 'haptic-feedback-swift', 'HapticFeedback'),
+  ];
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(candidate)) {
+      hapticBinaryPath = candidate;
+      return candidate;
+    }
+  }
+
+  return null;
+}
+
+function performHaptic(pattern = 'alignment') {
+  if (process.platform !== 'darwin') return false;
+
+  const binary = getHapticBinaryPath();
+  if (!binary) return false;
+
+  try {
+    const child = spawn(binary, [], { stdio: ['pipe', 'ignore', 'ignore'] });
+    child.stdin.write(`${pattern}\n`);
+    child.stdin.end();
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 const THEME_BG = {
   light: '#f5f5f5',
@@ -152,15 +182,7 @@ ipcMain.on('set-native-theme', (_event, { mode, resolved }) => {
 });
 
 ipcMain.handle('perform-haptic', (_event, pattern = 'alignment') => {
-  if (process.platform !== 'darwin' || !HapticFeedback) {
-    return { ok: false };
-  }
-  try {
-    new HapticFeedback().trigger(pattern);
-    return { ok: true };
-  } catch {
-    return { ok: false };
-  }
+  return { ok: performHaptic(pattern) };
 });
 
 function getWorkspaceStorePath() {

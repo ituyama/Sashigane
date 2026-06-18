@@ -1,13 +1,14 @@
 {
   "name": "sashigane",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Sashigane - A premium developer browser designed for responsive multi-viewport testing, auditing, and visual checking.",
   "main": "main.js",
   "scripts": {
-    "start": "electron .",
+    "start": "npm run prepare-haptic && electron .",
+    "prepare-haptic": "bash scripts/build-haptic.sh",
     "prepare-icon": "python3 scripts/prepare-icon.py",
-    "build": "npm run prepare-icon && electron-builder --mac",
-    "build:dir": "npm run prepare-icon && electron-builder --mac --dir"
+    "build": "npm run prepare-icon && npm run prepare-haptic && electron-builder --mac",
+    "build:dir": "npm run prepare-icon && npm run prepare-haptic && electron-builder --mac --dir"
   },
   "keywords": [
     "developer",
@@ -22,12 +23,16 @@
     "appId": "com.ituyama.sashigane",
     "productName": "Sashigane",
     "afterPack": "scripts/afterPack.js",
+    "asarUnpack": [
+      "build/HapticFeedback"
+    ],
     "files": [
       "**/*",
       "!**/.git/**",
       "!dist/**",
       "!build/icon.iconset/**",
-      "!build/icon-source.jpg"
+      "!build/icon-source.jpg",
+      "!build/.haptic-build-tmp/**"
     ],
     "directories": {
       "output": "dist",

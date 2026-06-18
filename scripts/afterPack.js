@@ -1,5 +1,6 @@
 const { execSync } = require('child_process');
 const path = require('path');
+const fs = require('fs');
 
 /**
  * Ad-hoc sign the final .app (not universal merge temps).
@@ -14,6 +15,12 @@ exports.default = async function afterPack(context) {
 
   const appName = `${context.packager.appInfo.productFilename}.app`;
   const appPath = path.join(context.appOutDir, appName);
+  const hapticBin = path.join(appPath, 'Contents/Resources/app.asar.unpacked/build/HapticFeedback');
+
+  if (fs.existsSync(hapticBin)) {
+    console.log(`Ad-hoc signing haptic helper ${hapticBin}`);
+    execSync(`codesign --force --sign - "${hapticBin}"`, { stdio: 'inherit' });
+  }
 
   console.log(`Ad-hoc signing ${appPath}`);
   execSync(`codesign --force --deep --sign - "${appPath}"`, { stdio: 'inherit' });
