@@ -1,12 +1,13 @@
 {
   "name": "sashigane",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Sashigane - A premium developer browser designed for responsive multi-viewport testing, auditing, and visual checking.",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "build": "electron-builder --mac",
-    "build:dir": "electron-builder --mac --dir"
+    "prepare-icon": "python3 scripts/prepare-icon.py",
+    "build": "npm run prepare-icon && electron-builder --mac",
+    "build:dir": "npm run prepare-icon && electron-builder --mac --dir"
   },
   "keywords": [
     "developer",
@@ -20,11 +21,13 @@
   "build": {
     "appId": "com.ituyama.sashigane",
     "productName": "Sashigane",
+    "afterPack": "scripts/afterPack.js",
     "files": [
       "**/*",
       "!**/.git/**",
       "!dist/**",
-      "!build/icon.iconset/**"
+      "!build/icon.iconset/**",
+      "!build/icon-source.jpg"
     ],
     "directories": {
       "output": "dist",
@@ -32,15 +35,30 @@
     },
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "build/icon.png",
+      "icon": "build/icon.icns",
       "target": [
-        "dmg",
-        "zip"
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "universal"
+          ]
+        }
       ],
-      "identity": null
+      "identity": null,
+      "gatekeeperAssess": false,
+      "hardenedRuntime": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
     },
     "dmg": {
-      "title": "Sashigane ${version}"
+      "title": "Sashigane ${version}",
+      "sign": false
     }
   },
   "devDependencies": {
