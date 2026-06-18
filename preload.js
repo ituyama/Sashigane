@@ -3,6 +3,8 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   captureWebview: (webContentsId, viewportName, width, height) => 
     ipcRenderer.invoke('capture-webview', { webContentsId, viewportName, width, height }),
+  captureWebviewData: (webContentsId) =>
+    ipcRenderer.invoke('capture-webview-data', { webContentsId }),
   openWebviewDevTools: (webContentsId) => 
     ipcRenderer.send('open-webview-devtools', webContentsId),
   setDeviceEmulation: (webContentsId, width, height) =>

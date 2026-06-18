@@ -100,6 +100,20 @@ ipcMain.handle('capture-webview', async (event, { webContentsId, viewportName, w
   }
 });
 
+ipcMain.handle('capture-webview-data', async (_event, { webContentsId }) => {
+  try {
+    const guestContents = webContents.fromId(webContentsId);
+    if (!guestContents) {
+      throw new Error(`WebContents not found for ID: ${webContentsId}`);
+    }
+    const image = await guestContents.capturePage();
+    return { success: true, dataUrl: image.toDataURL() };
+  } catch (error) {
+    console.error('Failed to capture webview data:', error);
+    return { success: false, error: error.message };
+  }
+});
+
 // IPC listener to open DevTools for individual webviews
 ipcMain.on('open-webview-devtools', (event, webContentsId) => {
   const guestContents = webContents.fromId(webContentsId);

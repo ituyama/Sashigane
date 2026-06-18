@@ -3,6 +3,7 @@ const { ipcRenderer } = require('electron');
 let isSyncingScroll = false;
 let scrollTimeout = null;
 let syncCaptureEnabled = true;
+let flowModeEnabled = false;
 
 // Helper to generate a unique-ish CSS selector for any clicked/inputted element
 function getDomPath(el) {
@@ -118,6 +119,34 @@ window.addEventListener('click', (event) => {
     return;
   }
 
+  if (flowModeEnabled) {
+    const anchor = event.target?.closest?.('a[href]');
+    if (anchor) {
+      let href = '';
+      try {
+        const rawHref = anchor.getAttribute('href') || '';
+        href = new URL(rawHref, window.location.href).href;
+      } catch {
+        href = anchor.href || '';
+      }
+      if (
+        href
+        && !href.startsWith('javascript:')
+        && !href.startsWith('mailto:')
+        && !href.startsWith('tel:')
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        ipcRenderer.sendToHost('guest-flow-navigate', {
+          href,
+          text: (anchor.textContent || '').trim().slice(0, 120),
+        });
+      }
+    }
+    return;
+  }
+
   if (!syncCaptureEnabled) return;
 
   ipcRenderer.sendToHost('guest-click', { selector });
@@ -150,6 +179,10 @@ window.addEventListener('change', handleInputEvent, true);
 
 ipcRenderer.on('set-sync-capture', (_event, enabled) => {
   syncCaptureEnabled = Boolean(enabled);
+});
+
+ipcRenderer.on('set-flow-mode', (_event, enabled) => {
+  flowModeEnabled = Boolean(enabled);
 });
 
 ipcRenderer.on('sync-scroll', (event, data) => {
@@ -437,6 +470,8 @@ function extractPageMetadata() {
       alt,
       hasAlt: el.hasAttribute('alt'),
       altEmpty: el.hasAttribute('alt') && !(alt || '').trim(),
+      width: el.naturalWidth || el.width || 0,
+      height: el.naturalHeight || el.height || 0,
     });
   });
 

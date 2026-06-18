@@ -26,10 +26,21 @@ const btnToggleLeftPanel = document.getElementById('btn-toggle-left-panel');
 const leftPanel = document.getElementById('left-panel');
 const leftPanelBody = document.getElementById('left-panel-body');
 const leftPanelSplitHandle = document.getElementById('left-panel-split-handle');
+const leftPanelWidthHandle = document.getElementById('left-panel-width-handle');
+const sidebarWidthHandle = document.getElementById('sidebar-width-handle');
 const btnToggleTheme = document.getElementById('btn-toggle-theme');
 const btnShortcuts = document.getElementById('btn-shortcuts');
+const btnSettings = document.getElementById('btn-settings');
 const modalShortcuts = document.getElementById('modal-shortcuts');
 const modalShortcutsClose = document.getElementById('modal-shortcuts-close');
+const modalSettings = document.getElementById('modal-settings');
+const modalSettingsClose = document.getElementById('modal-settings-close');
+const settingZoomToFit = document.getElementById('setting-zoom-to-fit');
+const settingTabHibernation = document.getElementById('setting-tab-hibernation');
+const settingFrameSnapVisual = document.getElementById('setting-frame-snap-visual');
+const settingFrameSnapHaptic = document.getElementById('setting-frame-snap-haptic');
+const settingBpHaptic = document.getElementById('setting-bp-haptic');
+const settingBpHapticVisual = document.getElementById('setting-bp-haptic-visual');
 const sidebarPanel = document.getElementById('sidebar-panel');
 const browserTabsEl = document.getElementById('browser-tabs');
 const browserTabPanels = document.getElementById('browser-tab-panels');
@@ -48,14 +59,31 @@ const homeRecentGrid = document.getElementById('home-recent-grid');
 const homeRecentEmpty = document.getElementById('home-recent-empty');
 const breakpointRuler = document.getElementById('breakpoint-ruler');
 
-// Sidebar Tabs & Panels
-const tabButtons = document.querySelectorAll('.tab-btn');
-const tabPanes = document.querySelectorAll('.tab-pane');
-const consoleBadge = document.getElementById('console-badge');
+// Sidebar — frame properties only
+const btnVisionMenu = document.getElementById('btn-vision-menu');
+const visionMenu = document.getElementById('vision-menu');
+const workspaceModeBar = document.getElementById('workspace-mode-bar');
+const workspaceModeSeg = document.getElementById('workspace-mode-seg');
+const workspaceModeButtons = document.querySelectorAll('[data-workspace-mode]');
+const workspaceViewCanvas = document.getElementById('workspace-view-canvas');
+const workspaceViewAudit = document.getElementById('workspace-view-audit');
+const workspaceViewConsole = document.getElementById('workspace-view-console');
+const auditSubnavButtons = document.querySelectorAll('[data-audit-tab]');
+const auditFrameSelect = document.getElementById('audit-frame-select');
+const auditModeBadge = document.getElementById('audit-mode-badge');
+const consoleModeBadge = document.getElementById('console-mode-badge');
 const consoleLogsContainer = document.getElementById('console-logs-container');
+const consoleSummary = document.getElementById('console-summary');
+const consoleTruncateNotice = document.getElementById('console-truncate-notice');
+const consoleFrameSelect = document.getElementById('console-frame-select');
+const consoleSearch = document.getElementById('console-search');
+const consoleAutoScroll = document.getElementById('console-auto-scroll');
+const btnConsoleCopy = document.getElementById('btn-console-copy');
+const btnConsoleErrorsOnly = document.getElementById('btn-console-errors-only');
 const btnClearConsole = document.getElementById('btn-clear-console');
 
 // Design / Properties panel
+const propsEmpty = document.getElementById('props-empty');
 const propsForm = document.getElementById('props-form');
 const propName = document.getElementById('prop-name');
 const propX = document.getElementById('prop-x');
@@ -69,6 +97,8 @@ const propUaHint = document.getElementById('prop-ua-hint');
 const propUaApply = document.getElementById('prop-ua-apply');
 const propOrientation = document.getElementById('prop-orientation');
 const propDuplicate = document.getElementById('prop-duplicate');
+const propFrameSize = document.getElementById('prop-frame-size');
+const propFrameUaLabel = document.getElementById('prop-frame-ua-label');
 const layersList = document.getElementById('layers-list');
 const layersCount = document.getElementById('layers-count');
 const btnInspectPick = document.getElementById('btn-inspect-pick');
@@ -85,17 +115,18 @@ const inspectorTabBox = document.getElementById('inspector-tab-box');
 const inspectorTabAttrs = document.getElementById('inspector-tab-attrs');
 const inspectorTabConsole = document.getElementById('inspector-tab-console');
 const inspectorTabButtons = document.querySelectorAll('[data-inspector-tab]');
+const inspectorTabSeg = document.getElementById('inspector-tab-seg');
 const urlHistoryList = document.getElementById('url-history');
 
 const seoAuditSummary = document.getElementById('seo-audit-summary');
 const seoAuditList = document.getElementById('seo-audit-list');
-const seoAuditBadge = document.getElementById('seo-audit-badge');
+const seoAuditBadge = document.getElementById('seo-audit-subnav-badge');
 const btnSeoAuditRefresh = document.getElementById('btn-seo-audit-refresh');
 
 const layoutAuditSummary = document.getElementById('layout-audit-summary');
 const layoutAuditFrames = document.getElementById('layout-audit-frames');
 const layoutAuditOffenders = document.getElementById('layout-audit-offenders');
-const layoutAuditBadge = document.getElementById('layout-audit-badge');
+const layoutAuditBadge = document.getElementById('layout-audit-subnav-badge');
 const btnLayoutAuditRefresh = document.getElementById('btn-layout-audit-refresh');
 const btnLayoutOverflowOutline = document.getElementById('btn-layout-overflow-outline');
 
@@ -125,7 +156,12 @@ let zoomToFitOnOpen = true;
 let tabHibernationEnabled = true;
 let breakpointHapticEnabled = true;
 let breakpointHapticVisualEnabled = true;
+let frameSnapHapticEnabled = true;
+let frameSnapVisualEnabled = true;
 let consoleLogs = [];
+let consoleUserScrolledUp = false;
+let consoleSearchQuery = '';
+const CONSOLE_LOG_CAP = 500;
 let allBreakpoints = new Set();
 const viewportWidthTracker = new Map();
 const bpFlashTimers = new Map();
@@ -189,9 +225,86 @@ const FRAME_DRAG_THRESHOLD = 4;
 const FRAME_EDGE_AUTOPAN_MARGIN = 56;
 const FRAME_EDGE_AUTOPAN_MAX_SPEED = 16;
 
-const VIEWPORT_HEADER_H = 34;
+const BASE_FRAME_HEADER_H = 36;
+const MIN_FRAME_HEADER_SCREEN_H = 32;
+const MAX_FRAME_HEADER_LOGICAL_H = 112;
+
+const FRAME_HEADER_DENSITY_THRESHOLDS = [
+  { density: 'full', minScreenW: 320 },
+  { density: 'standard', minScreenW: 240 },
+  { density: 'compact', minScreenW: 180 },
+  { density: 'tight', minScreenW: 120 },
+  { density: 'minimal', minScreenW: 0 },
+];
+
+const FRAME_HEADER_DENSITY_MAX_SCALE = {
+  full: 1.4,
+  standard: 1.55,
+  compact: 1.7,
+  tight: 1.9,
+  minimal: 2.25,
+};
+
+const FRAME_HEADER_DENSITY_MAX_SCREEN_H = {
+  full: 44,
+  standard: 46,
+  compact: 48,
+  tight: 50,
+  minimal: 52,
+};
+
+function getFrameScreenWidth(vp) {
+  if (!vp) return Infinity;
+  return vp.width * Math.max(workspaceZoom, 0.05);
+}
+
+function getFrameHeaderDensity(vp) {
+  const screenW = getFrameScreenWidth(vp);
+  for (const tier of FRAME_HEADER_DENSITY_THRESHOLDS) {
+    if (screenW >= tier.minScreenW) return tier.density;
+  }
+  return 'minimal';
+}
+
+function getFrameHeaderPresentation(vp) {
+  const density = getFrameHeaderDensity(vp);
+  const z = Math.max(workspaceZoom, 0.05);
+  const screenW = getFrameScreenWidth(vp);
+  const maxScale = FRAME_HEADER_DENSITY_MAX_SCALE[density] || 1.4;
+  const maxScreenH = FRAME_HEADER_DENSITY_MAX_SCREEN_H[density] || 44;
+
+  let targetScreenH = BASE_FRAME_HEADER_H * z;
+  if (targetScreenH < MIN_FRAME_HEADER_SCREEN_H) {
+    targetScreenH = MIN_FRAME_HEADER_SCREEN_H;
+  }
+
+  if (screenW < 200) {
+    targetScreenH += (1 - screenW / 200) * 10;
+  }
+
+  targetScreenH = Math.min(maxScreenH, targetScreenH);
+
+  let scale = targetScreenH / (BASE_FRAME_HEADER_H * z);
+  scale = Math.max(1, Math.min(maxScale, scale));
+
+  const headerH = Math.min(MAX_FRAME_HEADER_LOGICAL_H, BASE_FRAME_HEADER_H * scale);
+  return {
+    density,
+    scale: headerH / BASE_FRAME_HEADER_H,
+    headerH,
+  };
+}
+
+function getViewportChromeHeight(vp) {
+  return getFrameHeaderPresentation(vp).headerH;
+}
 
 let frameDragRaf = null;
+
+const SNAP_THRESHOLD_PX = 8;
+const SNAP_RELEASE_FACTOR = 1.45;
+let frameSnapEngaged = { x: false, y: false };
+let frameSnapPrev = { x: null, y: null };
 
 let urlHistory = [];
 let faviconCache = {};
@@ -212,9 +325,18 @@ const FAVICON_CACHE_KEY = 'sashigane-favicon-cache';
 const LAST_LAYOUT_KEY = 'sashigane-last-layout';
 const HIBERNATION_HINT_KEY = 'sashigane-hibernation-hint-shown';
 const LEFT_PANEL_SPLIT_KEY = 'sashigane-left-panel-split';
+const LEFT_PANEL_WIDTH_KEY = 'sashigane-left-panel-width';
+const SIDEBAR_WIDTH_KEY = 'sashigane-sidebar-width';
 const LEFT_PANEL_SPLIT_MIN = 0.22;
 const LEFT_PANEL_SPLIT_MAX = 0.78;
 const LEFT_PANEL_SPLIT_DEFAULT = 0.48;
+const LEFT_PANEL_WIDTH_MIN = 220;
+const LEFT_PANEL_WIDTH_MAX = 480;
+const LEFT_PANEL_WIDTH_DEFAULT = 280;
+const SIDEBAR_WIDTH_MIN = 220;
+const SIDEBAR_WIDTH_MAX = 520;
+const SIDEBAR_WIDTH_DEFAULT = 248;
+const PANEL_RESIZE_MIN_CENTER = 360;
 const LEFT_PANEL_LAYERS_MIN_PX = 80;
 const LEFT_PANEL_INSPECTOR_MIN_PX = 148;
 
@@ -222,11 +344,21 @@ let leftPanelLayersRatio = LEFT_PANEL_SPLIT_DEFAULT;
 let leftPanelSplitDragging = false;
 let leftPanelSplitDragStartY = 0;
 let leftPanelSplitDragStartRatio = 0;
+let leftPanelWidthPx = LEFT_PANEL_WIDTH_DEFAULT;
+let sidebarWidthPx = SIDEBAR_WIDTH_DEFAULT;
+let panelWidthDragging = null;
+let panelWidthDragStartX = 0;
+let panelWidthDragStartValue = 0;
 const RESIZE_HANDLE_DIRS = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'];
 const MIN_VIEWPORT_SIZE = 200;
 const MAX_VIEWPORT_SIZE = 3840;
 
 let themeMode = 'dark';
+let workspaceMode = 'canvas';
+let auditSubTab = 'tab-seo-audit';
+let auditBadgeSeoCount = 0;
+let auditBadgeLayoutCount = 0;
+let lastAuditMetadata = null;
 
 function resolveTheme(mode) {
   if (mode === 'system') {
@@ -618,7 +750,7 @@ function zoomToFitAll() {
     minX = Math.min(minX, vp.x);
     minY = Math.min(minY, vp.y);
     maxX = Math.max(maxX, vp.x + vp.width);
-    maxY = Math.max(maxY, vp.y + vp.height + VIEWPORT_HEADER_H);
+    maxY = Math.max(maxY, vp.y + vp.height + getViewportChromeHeight(vp));
   });
 
   zoomToFitBounds(minX, minY, maxX, maxY);
@@ -635,7 +767,7 @@ function zoomToSelection() {
     vp.x,
     vp.y,
     vp.x + vp.width,
-    vp.y + vp.height + VIEWPORT_HEADER_H
+    vp.y + vp.height + getViewportChromeHeight(vp)
   );
 }
 
@@ -669,17 +801,209 @@ function duplicateViewport(vpId = selectedViewportId) {
 
 function openShortcutsModal() {
   modalShortcuts?.classList.add('active');
+  modalShortcutsClose?.focus();
 }
 
 function closeShortcutsModal() {
   modalShortcuts?.classList.remove('active');
 }
 
+function syncSettingsUi() {
+  if (settingZoomToFit) settingZoomToFit.checked = zoomToFitOnOpen;
+  if (settingTabHibernation) settingTabHibernation.checked = tabHibernationEnabled;
+  if (settingFrameSnapVisual) settingFrameSnapVisual.checked = frameSnapVisualEnabled;
+  if (settingFrameSnapHaptic) settingFrameSnapHaptic.checked = frameSnapHapticEnabled;
+  if (settingBpHaptic) settingBpHaptic.checked = breakpointHapticEnabled;
+  if (settingBpHapticVisual) settingBpHapticVisual.checked = breakpointHapticVisualEnabled;
+}
+
+function openSettingsModal() {
+  syncSettingsUi();
+  modalSettings?.classList.add('active');
+  modalSettingsClose?.focus();
+}
+
+function closeSettingsModal() {
+  modalSettings?.classList.remove('active');
+}
+
+function applySettingFromUi() {
+  const prefs = {
+    zoomToFitOnOpen: Boolean(settingZoomToFit?.checked),
+    tabHibernation: Boolean(settingTabHibernation?.checked),
+    frameSnapVisual: Boolean(settingFrameSnapVisual?.checked),
+    frameSnapHaptic: Boolean(settingFrameSnapHaptic?.checked),
+    breakpointHaptic: Boolean(settingBpHaptic?.checked),
+    breakpointHapticVisual: Boolean(settingBpHapticVisual?.checked),
+  };
+  applyPreferences(prefs);
+  scheduleWorkspacePersist();
+}
+
+function updateWorkspaceModeBarVisibility() {
+  if (workspaceModeBar) workspaceModeBar.hidden = isHomeActive();
+}
+
+function getAuditTargetViewport(tab = getActiveTab()) {
+  if (!tab?.viewports?.length) return null;
+
+  const fromSelect = auditFrameSelect?.value ? Number(auditFrameSelect.value) : null;
+  if (fromSelect && tab.viewports.some(v => v.id === fromSelect)) {
+    return tab.viewports.find(v => v.id === fromSelect);
+  }
+  if (selectedViewportId !== null) {
+    return tab.viewports.find(v => v.id === selectedViewportId) || tab.viewports[0];
+  }
+  return tab.viewports[0];
+}
+
+function renderAuditFrameSelect() {
+  if (!auditFrameSelect) return;
+  const tab = getActiveTab();
+  if (!tab?.viewports?.length) {
+    auditFrameSelect.innerHTML = '<option value="">フレームなし</option>';
+    auditFrameSelect.disabled = true;
+    return;
+  }
+
+  auditFrameSelect.disabled = false;
+  const target = getAuditTargetViewport(tab);
+  auditFrameSelect.innerHTML = tab.viewports.map(vp => {
+    const selected = vp.id === target?.id ? ' selected' : '';
+    return `<option value="${vp.id}"${selected}>${escapeHTML(vp.name)} (${vp.width}px)</option>`;
+  }).join('');
+}
+
+function updateAuditModeBadge() {
+  const total = auditBadgeSeoCount + auditBadgeLayoutCount;
+  if (!auditModeBadge) return;
+  if (total > 0) {
+    auditModeBadge.textContent = String(total);
+    auditModeBadge.hidden = false;
+    auditModeBadge.classList.toggle('is-error', auditBadgeSeoCount > 0);
+  } else {
+    auditModeBadge.hidden = true;
+  }
+}
+
+function setAuditSubTab(tabId) {
+  auditSubTab = tabId;
+  auditSubnavButtons.forEach(btn => {
+    const active = btn.dataset.auditTab === tabId;
+    btn.classList.toggle('active', active);
+  });
+  document.querySelectorAll('.audit-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === tabId);
+  });
+
+  if (tabId === 'tab-seo-audit' || tabId === 'tab-outline') {
+    requestSeoAuditRefresh();
+  }
+  if (tabId === 'tab-meta') {
+    if (lastAuditMetadata) {
+      renderMetadataOverview(lastAuditMetadata);
+    } else {
+      requestSeoAuditRefresh();
+    }
+  }
+  if (tabId === 'tab-layout') {
+    requestLayoutAuditAll();
+    renderLayoutAuditPanel();
+  }
+  scheduleWorkspacePersist();
+}
+
+function setWorkspaceMode(mode) {
+  if (!['canvas', 'audit', 'console'].includes(mode)) return;
+  if (isHomeActive() && mode !== 'canvas') return;
+
+  workspaceMode = mode;
+  document.body.classList.remove('workspace-mode-canvas', 'workspace-mode-audit', 'workspace-mode-console');
+  document.body.classList.add(`workspace-mode-${mode}`);
+
+  if (workspaceViewCanvas) workspaceViewCanvas.hidden = mode !== 'canvas';
+  if (workspaceViewAudit) workspaceViewAudit.hidden = mode !== 'audit';
+  if (workspaceViewConsole) workspaceViewConsole.hidden = mode !== 'console';
+
+  workspaceModeButtons.forEach(btn => {
+    const active = btn.dataset.workspaceMode === mode;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+
+  if (workspaceModeSeg) {
+    const segIndex = { canvas: 0, audit: 1, console: 2 }[mode] ?? 0;
+    workspaceModeSeg.style.setProperty('--workspace-mode-seg-index', String(segIndex));
+  }
+
+  if (mode === 'audit') {
+    renderAuditFrameSelect();
+  renderConsoleFrameSelect();
+    setAuditSubTab(auditSubTab);
+  } else if (mode === 'console') {
+    renderConsoleFrameSelect();
+    renderConsoleLogs();
+  }
+
+  scheduleWorkspacePersist();
+}
+
+function setupWorkspaceModes() {
+  workspaceModeButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setWorkspaceMode(btn.dataset.workspaceMode);
+    });
+  });
+
+  auditSubnavButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+      setAuditSubTab(btn.dataset.auditTab);
+    });
+  });
+
+  auditFrameSelect?.addEventListener('change', () => {
+    const tab = getActiveTab();
+    const vpId = Number(auditFrameSelect.value);
+    if (tab && vpId) {
+      selectViewport(vpId);
+      requestSeoAuditRefresh();
+      if (auditSubTab === 'tab-layout') renderLayoutAuditPanel();
+    }
+  });
+
+  setWorkspaceMode(workspaceMode);
+}
+
+function updateNavigationButtons() {
+  if (!btnBack || !btnForward) return;
+
+  if (isHomeActive()) {
+    btnBack.disabled = true;
+    btnForward.disabled = true;
+    return;
+  }
+
+  let canBack = false;
+  let canForward = false;
+  const canvas = getActiveCanvas();
+  canvas?.querySelectorAll('webview').forEach(wv => {
+    try {
+      if (wv.canGoBack()) canBack = true;
+      if (wv.canGoForward()) canForward = true;
+    } catch {
+      // ignore
+    }
+  });
+
+  btnBack.disabled = !canBack;
+  btnForward.disabled = !canForward;
+}
+
 function showWelcomeHint() {
   if (localStorage.getItem('sashigane-welcome-shown')) return;
-  if (isHomeActive()) return;
   localStorage.setItem('sashigane-welcome-shown', '1');
-  showToast('デザインと実装のすき間を埋める — I で要素ピック、? でショートカット');
+  if (isHomeActive()) return;
+  showToast('ボードを開きました — フレームをドラッグして配置、? でショートカット一覧');
 }
 
 function isHomeActive() {
@@ -695,12 +1019,16 @@ function updateHomeScreenState() {
     urlInput.disabled = onHome;
     urlForm?.classList.toggle('is-disabled', onHome);
   }
-  if (btnBack) btnBack.disabled = onHome;
-  if (btnForward) btnForward.disabled = onHome;
   if (btnReload) btnReload.disabled = onHome;
   if (btnHome) {
     btnHome.classList.toggle('active', onHome);
     btnHome.setAttribute('aria-pressed', onHome ? 'true' : 'false');
+  }
+  updateNavigationButtons();
+  updateWorkspaceModeBarVisibility();
+
+  if (onHome && workspaceMode !== 'canvas') {
+    setWorkspaceMode('canvas');
   }
 
   if (onHome) {
@@ -871,12 +1199,16 @@ function goHome() {
   enterHomeScreen();
 }
 
-function openNewBrowserTab(url = 'https://example.com', { viewports: customViewports } = {}) {
+function openNewBrowserTab(url = 'https://example.com', { viewports: customViewports, boardMode = 'canvas' } = {}) {
   const normalized = normalizeUserUrl(url) || url;
-  const tab = createBrowserTab(normalized, { viewports: customViewports });
+  const tab = createBrowserTab(normalized, { viewports: customViewports, boardMode });
   browserTabs.push(tab);
   renderBrowserTabPanel(tab);
   setActiveBrowserTab(tab.id);
+  showWelcomeHint();
+  if (boardMode === 'flow') {
+    showToast('Flow: ページ内のリンクをクリックすると導線を記録します');
+  }
   if (zoomToFitOnOpen) {
     requestAnimationFrame(() => zoomToFitAll());
   }
@@ -983,6 +1315,7 @@ function setupGlobalShortcuts() {
       closeViewportMenu();
       closeCustomViewportModal();
       closeShortcutsModal();
+      closeSettingsModal();
       if (inspectModeActive) {
         setInspectMode(false);
         return;
@@ -995,6 +1328,24 @@ function setupGlobalShortcuts() {
       e.preventDefault();
       openShortcutsModal();
       return;
+    }
+
+    if (!isTypingTarget(e.target) && !isHomeActive() && !e.metaKey && !e.ctrlKey && !e.altKey) {
+      if (e.key === '1') {
+        e.preventDefault();
+        setWorkspaceMode('canvas');
+        return;
+      }
+      if (e.key === '2') {
+        e.preventDefault();
+        setWorkspaceMode('audit');
+        return;
+      }
+      if (e.key === '3') {
+        e.preventDefault();
+        setWorkspaceMode('console');
+        return;
+      }
     }
 
     if (isTypingTarget(e.target)) return;
@@ -1112,6 +1463,21 @@ function applyCanvasTransform() {
   if (zoomValueLabel) {
     zoomValueLabel.innerText = `${Math.round(workspaceZoom * 100)}%`;
   }
+  updateFrameHeaderDensity();
+}
+
+function updateFrameHeaderDensity() {
+  const tab = getActiveTab();
+  if (!tab?.viewports?.length || isHomeActive()) return;
+
+  tab.viewports.forEach(vp => {
+    const uid = `${tab.id}-${vp.id}`;
+    const shell = document.getElementById(`vp-shell-${uid}`);
+    const card = document.getElementById(`vp-card-${uid}`);
+    const header = card?.querySelector('.viewport-header.frame-bar');
+    if (!shell || !card || !header) return;
+    applyFrameHeaderChrome(vp, shell, card, header);
+  });
 }
 
 function scheduleCanvasTransform() {
@@ -1215,6 +1581,214 @@ function cancelFrameDragPending() {
   frameDragPendingPointerId = null;
 }
 
+function resetFrameSnapState() {
+  frameSnapEngaged = { x: false, y: false };
+  frameSnapPrev = { x: null, y: null };
+}
+
+function getFrameShellHeight(vp) {
+  return vp.height + getViewportChromeHeight(vp);
+}
+
+function getFrameBounds(vp) {
+  const shellH = getFrameShellHeight(vp);
+  return {
+    left: vp.x,
+    right: vp.x + vp.width,
+    top: vp.y,
+    bottom: vp.y + shellH,
+    centerX: vp.x + vp.width / 2,
+    centerY: vp.y + shellH / 2,
+    width: vp.width,
+    height: shellH,
+  };
+}
+
+function buildSnapLines(viewports, excludeVpId) {
+  const x = [0];
+  const y = [0];
+
+  for (const vp of viewports) {
+    if (vp.id === excludeVpId) continue;
+    const b = getFrameBounds(vp);
+    x.push(b.left, b.right, b.centerX);
+    y.push(b.top, b.bottom, b.centerY);
+  }
+
+  return {
+    x: [...new Set(x.map(v => Math.round(v * 100) / 100))],
+    y: [...new Set(y.map(v => Math.round(v * 100) / 100))],
+  };
+}
+
+function snapAxisPosition(pos, size, lines, prevSnap) {
+  const threshold = SNAP_THRESHOLD_PX / workspaceZoom;
+  const release = threshold * SNAP_RELEASE_FACTOR;
+  const refs = [
+    { edge: pos, delta: 0 },
+    { edge: pos + size, delta: -size },
+    { edge: pos + size / 2, delta: -size / 2 },
+  ];
+
+  let bestPos = pos;
+  let bestLine = null;
+  let bestDist = Infinity;
+
+  for (const ref of refs) {
+    for (const line of lines) {
+      const dist = Math.abs(ref.edge - line);
+      const wasSnapped = prevSnap?.line === line;
+      const limit = wasSnapped ? release : threshold;
+      if (dist <= limit && dist < bestDist) {
+        bestDist = dist;
+        bestPos = line + ref.delta;
+        bestLine = line;
+      }
+    }
+  }
+
+  return {
+    value: bestPos,
+    snapped: bestLine !== null,
+    line: bestLine,
+  };
+}
+
+function snapFramePosition(x, y, vp, tab) {
+  const lines = buildSnapLines(tab.viewports, vp.id);
+  const shellH = getFrameShellHeight(vp);
+  const xResult = snapAxisPosition(x, vp.width, lines.x, frameSnapPrev.x);
+  const yResult = snapAxisPosition(y, shellH, lines.y, frameSnapPrev.y);
+
+  const snapState = {
+    x: xResult.snapped ? { line: xResult.line } : null,
+    y: yResult.snapped ? { line: yResult.line } : null,
+  };
+
+  return {
+    x: xResult.value,
+    y: yResult.value,
+    guides: { x: xResult.line, y: yResult.line },
+    snapState,
+    newlySnapped: {
+      x: xResult.snapped && !frameSnapEngaged.x,
+      y: yResult.snapped && !frameSnapEngaged.y,
+    },
+  };
+}
+
+function ensureSnapGuidesLayer(tab) {
+  const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+  if (!canvas) return null;
+
+  let layer = canvas.querySelector('.snap-guides-layer');
+  if (!layer) {
+    layer = document.createElement('div');
+    layer.className = 'snap-guides-layer';
+    layer.setAttribute('aria-hidden', 'true');
+    canvas.appendChild(layer);
+  }
+  return layer;
+}
+
+function computeSnapGuideSpan(tab, guides, draggedBounds) {
+  const eps = 0.75;
+  let minX = draggedBounds.left;
+  let maxX = draggedBounds.right;
+  let minY = draggedBounds.top;
+  let maxY = draggedBounds.bottom;
+
+  for (const vp of tab.viewports) {
+    const b = getFrameBounds(vp);
+    if (guides.x !== null && guides.x !== undefined) {
+      if (
+        Math.abs(b.left - guides.x) <= eps ||
+        Math.abs(b.right - guides.x) <= eps ||
+        Math.abs(b.centerX - guides.x) <= eps
+      ) {
+        minY = Math.min(minY, b.top);
+        maxY = Math.max(maxY, b.bottom);
+      }
+    }
+    if (guides.y !== null && guides.y !== undefined) {
+      if (
+        Math.abs(b.top - guides.y) <= eps ||
+        Math.abs(b.bottom - guides.y) <= eps ||
+        Math.abs(b.centerY - guides.y) <= eps
+      ) {
+        minX = Math.min(minX, b.left);
+        maxX = Math.max(maxX, b.right);
+      }
+    }
+  }
+
+  const pad = 12;
+  return {
+    minX: minX - pad,
+    maxX: maxX + pad,
+    minY: minY - pad,
+    maxY: maxY + pad,
+  };
+}
+
+function renderSnapGuides(tab, guides, draggedVp) {
+  if (!frameSnapVisualEnabled) return;
+
+  const layer = ensureSnapGuidesLayer(tab);
+  if (!layer) return;
+
+  layer.replaceChildren();
+  if (!guides || (guides.x == null && guides.y == null)) return;
+
+  const draggedBounds = getFrameBounds(draggedVp);
+  const span = computeSnapGuideSpan(tab, guides, draggedBounds);
+
+  if (guides.x != null) {
+    const line = document.createElement('div');
+    line.className = 'snap-guide snap-guide-vertical';
+    line.style.left = `${guides.x}px`;
+    line.style.top = `${span.minY}px`;
+    line.style.height = `${Math.max(1, span.maxY - span.minY)}px`;
+    layer.appendChild(line);
+  }
+
+  if (guides.y != null) {
+    const line = document.createElement('div');
+    line.className = 'snap-guide snap-guide-horizontal';
+    line.style.top = `${guides.y}px`;
+    line.style.left = `${span.minX}px`;
+    line.style.width = `${Math.max(1, span.maxX - span.minX)}px`;
+    layer.appendChild(line);
+  }
+}
+
+function clearSnapGuides(tab = getActiveTab()) {
+  if (!tab) return;
+  document.querySelector(`#workspace-canvas-${tab.id} .snap-guides-layer`)?.replaceChildren();
+}
+
+function triggerFrameSnapHaptic() {
+  if (!frameSnapHapticEnabled) return;
+  window.electronAPI?.performHaptic?.('alignment');
+}
+
+function updateFrameSnapFeedback(tab, vp, snapResult) {
+  const shell = document.getElementById(`vp-shell-${tab.id}-${vp.id}`);
+  const isSnapped = Boolean(snapResult.snapState.x || snapResult.snapState.y);
+  shell?.classList.toggle('is-snap-active', isSnapped && frameSnapVisualEnabled);
+
+  if (snapResult.newlySnapped.x || snapResult.newlySnapped.y) {
+    triggerFrameSnapHaptic();
+  }
+
+  frameSnapEngaged = {
+    x: Boolean(snapResult.snapState.x),
+    y: Boolean(snapResult.snapState.y),
+  };
+  frameSnapPrev = snapResult.snapState;
+  renderSnapGuides(tab, snapResult.guides, vp);
+}
+
 function beginFrameDragPending(vp, e) {
   frameDragPending = true;
   frameDragPendingPointerId = e.pointerId;
@@ -1240,6 +1814,7 @@ function promoteFrameDragPending(e) {
   frameDragPending = false;
   frameDragPendingPointerId = null;
   isDraggingFrame = true;
+  resetFrameSnapState();
   shell?.classList.add('is-dragging');
   workspaceGrid?.classList.add('is-frame-interacting');
   startPointerSession(e, workspaceGrid);
@@ -1337,9 +1912,15 @@ function flushFrameDrag() {
 
   const dx = (frameDragPointerX - frameDragStartX) / workspaceZoom;
   const dy = (frameDragPointerY - frameDragStartY) / workspaceZoom;
-  vp.x = frameDragOriginX + dx;
-  vp.y = frameDragOriginY + dy;
+  const rawX = frameDragOriginX + dx;
+  const rawY = frameDragOriginY + dy;
+  const snapResult = snapFramePosition(rawX, rawY, vp, tab);
+
+  vp.x = snapResult.x;
+  vp.y = snapResult.y;
+  updateFrameSnapFeedback(tab, vp, snapResult);
   syncViewportFrame(vp, tab);
+  if (isFlowTab(tab)) renderFlowEdges(tab);
 }
 
 function scheduleFrameDragUpdate() {
@@ -1384,13 +1965,15 @@ function scheduleFrameResizeUpdate() {
 
 function scrubInteractionUiState() {
   document.querySelectorAll('.viewport-frame-shell.is-dragging').forEach(el => {
-    el.classList.remove('is-dragging');
+    el.classList.remove('is-dragging', 'is-snap-active');
   });
   document.querySelectorAll('.viewport-frame-shell.is-resizing').forEach(el => {
     el.classList.remove('is-resizing');
   });
   const grid = document.getElementById('workspace-grid');
   grid?.classList.remove('is-frame-interacting', 'is-panning');
+  resetFrameSnapState();
+  clearSnapGuides();
 }
 
 function endAllPointerInteractions(e) {
@@ -1419,8 +2002,10 @@ function endFrameDrag() {
   }
 
   const shell = document.getElementById(`vp-shell-${tab?.id}-${frameDragVpId}`);
-  shell?.classList.remove('is-dragging');
+  shell?.classList.remove('is-dragging', 'is-snap-active');
   document.getElementById('workspace-grid')?.classList.remove('is-frame-interacting');
+  resetFrameSnapState();
+  clearSnapGuides(tab);
 
   isDraggingFrame = false;
   frameDragVpId = null;
@@ -2115,11 +2700,19 @@ function renderInspectorPanel() {
   }
 
   const info = selectedElementInfo;
-  renderInspectorSummary(info);
   if (inspectorBreadcrumb) {
-    inspectorBreadcrumb.innerHTML = `<span class="inspector-tag inspector-tag-${getDomTagCategory(info.tag)}">&lt;${escapeHTML(info.tag)}&gt;</span> <span class="inspector-crumb-label">${escapeHTML(info.label)}</span>`;
+    const w = info.box?.content?.width ?? 0;
+    const h = info.box?.content?.height ?? 0;
+    const display = info.computed?.display || '';
+    const meta = [w && h ? `${w}×${h}` : '', display].filter(Boolean).join(' · ');
+    inspectorBreadcrumb.innerHTML = `
+      <span class="inspector-tag inspector-tag-${getDomTagCategory(info.tag)}">&lt;${escapeHTML(info.tag)}&gt;</span>
+      <span class="inspector-crumb-label">${escapeHTML(info.label)}</span>
+      ${meta ? `<span class="inspector-crumb-meta">${escapeHTML(meta)}</span>` : ''}
+    `;
     inspectorBreadcrumb.title = info.selector;
   }
+  if (inspectorSummary) inspectorSummary.innerHTML = '';
 
   renderInspectorStyles(info);
   renderInspectorBox(info);
@@ -2339,10 +2932,12 @@ function renderInspectorConsole() {
   inspectorTabConsole.innerHTML = '';
 
   const vp = getSelectedViewport();
-  const frameLabel = vp ? `${getActiveTab()?.title || ''} / ${vp.name}` : '';
+  const frameId = vp?.id;
 
   const filteredLogs = consoleLogs.filter(log => {
-    if (!frameLabel) return true;
+    if (frameId && log.vpId) return log.vpId === frameId;
+    if (!frameId) return false;
+    const frameLabel = `${getActiveTab()?.title || ''} / ${vp.name}`;
     return log.source === frameLabel;
   }).slice(-80);
 
@@ -2354,11 +2949,8 @@ function renderInspectorConsole() {
   filteredLogs.forEach(log => {
     const entry = document.createElement('div');
     entry.className = `inspector-log level-${log.level}`;
-    let levelName = 'LOG';
-    if (log.level === 1) levelName = 'WARN';
-    if (log.level === 2) levelName = 'ERROR';
     entry.innerHTML = `
-      <span class="inspector-log-level">${levelName}</span>
+      <span class="inspector-log-level">${getConsoleLevelName(log.level)}</span>
       <span class="inspector-log-msg">${escapeHTML(log.message)}</span>
     `;
     inspectorTabConsole.appendChild(entry);
@@ -2394,6 +2986,178 @@ function getLeftPanelSplitBounds() {
   }
 
   return { min, max };
+}
+
+function getMainWorkspaceWidth() {
+  return document.querySelector('.main-workspace')?.clientWidth || window.innerWidth;
+}
+
+function isLeftPanelVisible() {
+  return Boolean(leftPanel && !leftPanel.classList.contains('collapsed'));
+}
+
+function isSidebarVisible() {
+  return Boolean(sidebarPanel && !sidebarPanel.classList.contains('collapsed'));
+}
+
+function getLeftPanelWidthBounds() {
+  const total = getMainWorkspaceWidth();
+  const sidebarW = isSidebarVisible() ? sidebarWidthPx : 0;
+  const max = Math.min(
+    LEFT_PANEL_WIDTH_MAX,
+    Math.max(LEFT_PANEL_WIDTH_MIN, total - sidebarW - PANEL_RESIZE_MIN_CENTER)
+  );
+  return { min: LEFT_PANEL_WIDTH_MIN, max };
+}
+
+function getSidebarWidthBounds() {
+  const total = getMainWorkspaceWidth();
+  const leftW = isLeftPanelVisible() ? leftPanelWidthPx : 0;
+  const max = Math.min(
+    SIDEBAR_WIDTH_MAX,
+    Math.max(SIDEBAR_WIDTH_MIN, total - leftW - PANEL_RESIZE_MIN_CENTER)
+  );
+  return { min: SIDEBAR_WIDTH_MIN, max };
+}
+
+function clampLeftPanelWidth(width) {
+  const { min, max } = getLeftPanelWidthBounds();
+  return Math.round(Math.min(max, Math.max(min, width)));
+}
+
+function clampSidebarWidth(width) {
+  const { min, max } = getSidebarWidthBounds();
+  return Math.round(Math.min(max, Math.max(min, width)));
+}
+
+function applyLeftPanelWidth(width, { persist = false } = {}) {
+  leftPanelWidthPx = clampLeftPanelWidth(width);
+  document.documentElement.style.setProperty('--left-panel-width', `${leftPanelWidthPx}px`);
+  leftPanelWidthHandle?.setAttribute('aria-valuenow', String(leftPanelWidthPx));
+  if (persist) persistPanelWidths();
+}
+
+function applySidebarWidth(width, { persist = false } = {}) {
+  sidebarWidthPx = clampSidebarWidth(width);
+  document.documentElement.style.setProperty('--sidebar-width', `${sidebarWidthPx}px`);
+  sidebarWidthHandle?.setAttribute('aria-valuenow', String(sidebarWidthPx));
+  if (persist) persistPanelWidths();
+}
+
+function loadPanelWidths() {
+  try {
+    const leftRaw = localStorage.getItem(LEFT_PANEL_WIDTH_KEY);
+    const sidebarRaw = localStorage.getItem(SIDEBAR_WIDTH_KEY);
+    if (leftRaw) {
+      const left = parseInt(leftRaw, 10);
+      if (Number.isFinite(left)) applyLeftPanelWidth(left);
+    } else {
+      applyLeftPanelWidth(LEFT_PANEL_WIDTH_DEFAULT);
+    }
+    if (sidebarRaw) {
+      const sidebar = parseInt(sidebarRaw, 10);
+      if (Number.isFinite(sidebar)) applySidebarWidth(sidebar);
+    } else {
+      applySidebarWidth(SIDEBAR_WIDTH_DEFAULT);
+    }
+  } catch {
+    applyLeftPanelWidth(LEFT_PANEL_WIDTH_DEFAULT);
+    applySidebarWidth(SIDEBAR_WIDTH_DEFAULT);
+  }
+}
+
+function persistPanelWidths() {
+  try {
+    localStorage.setItem(LEFT_PANEL_WIDTH_KEY, String(leftPanelWidthPx));
+    localStorage.setItem(SIDEBAR_WIDTH_KEY, String(sidebarWidthPx));
+  } catch {
+    // ignore
+  }
+  scheduleWorkspacePersist();
+}
+
+function reflowPanelWidths() {
+  applyLeftPanelWidth(leftPanelWidthPx);
+  applySidebarWidth(sidebarWidthPx);
+}
+
+function setupPanelWidthResize() {
+  const handles = [
+    {
+      el: leftPanelWidthHandle,
+      panel: leftPanel,
+      side: 'left',
+      getValue: () => leftPanelWidthPx,
+      apply: (value) => applyLeftPanelWidth(value),
+      deltaSign: 1,
+    },
+    {
+      el: sidebarWidthHandle,
+      panel: sidebarPanel,
+      side: 'sidebar',
+      getValue: () => sidebarWidthPx,
+      apply: (value) => applySidebarWidth(value),
+      deltaSign: -1,
+    },
+  ];
+
+  const endDrag = (e) => {
+    if (!panelWidthDragging) return;
+    const active = panelWidthDragging;
+    panelWidthDragging = null;
+    active.el.classList.remove('is-dragging');
+    active.panel?.classList.remove('is-resizing-width');
+    document.body.classList.remove('panel-width-resize-active');
+    persistPanelWidths();
+    try {
+      active.el.releasePointerCapture(e.pointerId);
+    } catch {
+      // ignore
+    }
+  };
+
+  handles.forEach((handle) => {
+    if (!handle.el) return;
+
+    handle.el.setAttribute('aria-valuemin', String(handle.side === 'left' ? LEFT_PANEL_WIDTH_MIN : SIDEBAR_WIDTH_MIN));
+    handle.el.setAttribute('aria-valuemax', String(handle.side === 'left' ? LEFT_PANEL_WIDTH_MAX : SIDEBAR_WIDTH_MAX));
+    handle.el.setAttribute('aria-valuenow', String(handle.getValue()));
+
+    handle.el.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0) return;
+      if (handle.panel?.classList.contains('collapsed')) return;
+      e.preventDefault();
+      panelWidthDragging = handle;
+      panelWidthDragStartX = e.clientX;
+      panelWidthDragStartValue = handle.getValue();
+      handle.el.classList.add('is-dragging');
+      handle.panel?.classList.add('is-resizing-width');
+      document.body.classList.add('panel-width-resize-active');
+      handle.el.setPointerCapture(e.pointerId);
+    });
+
+    handle.el.addEventListener('pointermove', (e) => {
+      if (panelWidthDragging !== handle) return;
+      const delta = (e.clientX - panelWidthDragStartX) * handle.deltaSign;
+      handle.apply(panelWidthDragStartValue + delta);
+    });
+
+    handle.el.addEventListener('pointerup', endDrag);
+    handle.el.addEventListener('pointercancel', endDrag);
+
+    handle.el.addEventListener('keydown', (e) => {
+      if (handle.panel?.classList.contains('collapsed')) return;
+      const step = e.shiftKey ? 24 : 8;
+      if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+        e.preventDefault();
+        const direction = e.key === 'ArrowRight' ? 1 : -1;
+        const signed = direction * step * handle.deltaSign;
+        handle.apply(handle.getValue() + signed, { persist: true });
+      }
+    });
+  });
+
+  window.addEventListener('resize', reflowPanelWidths);
 }
 
 function clampLeftPanelSplitRatio(ratio) {
@@ -2521,17 +3285,30 @@ function setupInspectorPanel() {
 
   inspectorTabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
-      activeInspectorTab = btn.dataset.inspectorTab;
-      inspectorTabButtons.forEach(b => b.classList.toggle('active', b === btn));
-      document.querySelectorAll('.inspector-tab-pane').forEach(pane => {
-        pane.classList.toggle('active', pane.id === `inspector-tab-${activeInspectorTab}`);
-      });
-      if (activeInspectorTab === 'console') renderInspectorConsole();
+      setInspectorTab(btn.dataset.inspectorTab);
     });
   });
 
   btnInspectOutline?.classList.toggle('active', cssOutlineEnabled);
   renderInspectorPanel();
+}
+
+function setInspectorTab(tabId) {
+  if (!['styles', 'box', 'attrs', 'console'].includes(tabId)) return;
+  activeInspectorTab = tabId;
+  const segIndex = { styles: 0, box: 1, attrs: 2, console: 3 }[tabId] ?? 0;
+  inspectorTabButtons.forEach(btn => {
+    const active = btn.dataset.inspectorTab === tabId;
+    btn.classList.toggle('active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  if (inspectorTabSeg) {
+    inspectorTabSeg.style.setProperty('--inspector-tab-seg-index', String(segIndex));
+  }
+  document.querySelectorAll('.inspector-tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === `inspector-tab-${tabId}`);
+  });
+  if (tabId === 'console') renderInspectorConsole();
 }
 
 function highlightDomElement(vp, tab, selector) {
@@ -2803,13 +3580,8 @@ function renderLayersPanel() {
     btn.className = 'layers-item-btn';
     btn.innerHTML = `
       <span class="layers-item-icon layers-item-icon-${deviceKind}" aria-hidden="true">${frameDeviceIcon(deviceKind)}</span>
-      <span class="layers-item-main">
-        <span class="layers-item-name">${escapeHTML(vp.name)}</span>
-        <span class="layers-item-meta">
-          <span class="layers-device-badge">${DEVICE_KIND_LABELS[deviceKind] || deviceKind}</span>
-          <span class="layers-item-size">${vp.width}×${vp.height}</span>
-        </span>
-      </span>
+      <span class="layers-item-name">${escapeHTML(vp.name)}</span>
+      <span class="layers-item-size">${vp.width}×${vp.height}</span>
     `;
     btn.addEventListener('click', () => {
       selectViewport(vp.id);
@@ -2890,6 +3662,18 @@ function capturePreferences() {
     tabHibernation: tabHibernationEnabled,
     breakpointHaptic: breakpointHapticEnabled,
     breakpointHapticVisual: breakpointHapticVisualEnabled,
+    frameSnapHaptic: frameSnapHapticEnabled,
+    frameSnapVisual: frameSnapVisualEnabled,
+    leftPanelWidth: leftPanelWidthPx,
+    sidebarWidth: sidebarWidthPx,
+    workspaceMode,
+    auditSubTab,
+    consoleLogFilters: {
+      info: logFilterInfo?.checked ?? true,
+      warn: logFilterWarn?.checked ?? true,
+      error: logFilterError?.checked ?? true,
+    },
+    consoleAutoScroll: consoleAutoScroll?.checked ?? true,
     leftPanelCollapsed: Boolean(leftPanel?.classList.contains('collapsed')),
     sidebarCollapsed: Boolean(sidebarPanel?.classList.contains('collapsed')),
   };
@@ -2919,7 +3703,11 @@ function applyPreferences(prefs) {
     document.querySelectorAll('input[name="vision-filter"]').forEach(radio => {
       radio.checked = radio.value === activeVisionFilter;
     });
+    document.querySelectorAll('.vision-option').forEach(card => {
+      card.classList.toggle('active', card.dataset.vision === activeVisionFilter);
+    });
     forEachWebview(wv => wv.send('apply-vision-filter', activeVisionFilter));
+    updateVisionMenuButton();
   }
 
   if (prefs.canvasTool === 'hand' || prefs.canvasTool === 'select') {
@@ -2948,6 +3736,52 @@ function applyPreferences(prefs) {
 
   if (typeof prefs.breakpointHapticVisual === 'boolean') {
     breakpointHapticVisualEnabled = prefs.breakpointHapticVisual;
+  }
+
+  if (typeof prefs.frameSnapHaptic === 'boolean') {
+    frameSnapHapticEnabled = prefs.frameSnapHaptic;
+  }
+
+  if (typeof prefs.frameSnapVisual === 'boolean') {
+    frameSnapVisualEnabled = prefs.frameSnapVisual;
+  }
+
+  if (typeof prefs.leftPanelWidth === 'number' && Number.isFinite(prefs.leftPanelWidth)) {
+    applyLeftPanelWidth(prefs.leftPanelWidth);
+  }
+
+  if (typeof prefs.sidebarWidth === 'number' && Number.isFinite(prefs.sidebarWidth)) {
+    applySidebarWidth(prefs.sidebarWidth);
+  }
+
+  if (prefs.workspaceMode === 'canvas' || prefs.workspaceMode === 'audit' || prefs.workspaceMode === 'console') {
+    workspaceMode = prefs.workspaceMode;
+  }
+
+  if (
+    prefs.auditSubTab === 'tab-seo-audit'
+    || prefs.auditSubTab === 'tab-seo'
+    || prefs.auditSubTab === 'tab-meta'
+    || prefs.auditSubTab === 'tab-outline'
+    || prefs.auditSubTab === 'tab-layout'
+  ) {
+    auditSubTab = prefs.auditSubTab;
+  }
+
+  if (prefs.consoleLogFilters && typeof prefs.consoleLogFilters === 'object') {
+    if (typeof prefs.consoleLogFilters.info === 'boolean' && logFilterInfo) {
+      logFilterInfo.checked = prefs.consoleLogFilters.info;
+    }
+    if (typeof prefs.consoleLogFilters.warn === 'boolean' && logFilterWarn) {
+      logFilterWarn.checked = prefs.consoleLogFilters.warn;
+    }
+    if (typeof prefs.consoleLogFilters.error === 'boolean' && logFilterError) {
+      logFilterError.checked = prefs.consoleLogFilters.error;
+    }
+  }
+
+  if (typeof prefs.consoleAutoScroll === 'boolean' && consoleAutoScroll) {
+    consoleAutoScroll.checked = prefs.consoleAutoScroll;
   }
 
   if (leftPanel && btnToggleLeftPanel) {
@@ -3036,7 +3870,7 @@ function alignSelectedViewportCenter() {
   const cx = (-panX + grid.clientWidth / 2) / z;
   const cy = (-panY + grid.clientHeight / 2) / z;
   vp.x = Math.round(cx - vp.width / 2);
-  vp.y = Math.round(cy - (vp.height + VIEWPORT_HEADER_H) / 2);
+  vp.y = Math.round(cy - (vp.height + getViewportChromeHeight(vp)) / 2);
 
   syncViewportFrame(vp, tab);
   updateCanvasSurface(tab);
@@ -3115,6 +3949,8 @@ function serializeWorkspace() {
       panY: tab.panY,
       workspaceZoom: tab.workspaceZoom,
       selectedViewportId: tab.selectedViewportId,
+      boardMode: tab.boardMode || 'canvas',
+      flow: tab.flow || null,
       viewports: tab.viewports.map(vp => ({
         id: vp.id,
         name: vp.name,
@@ -3123,6 +3959,11 @@ function serializeWorkspace() {
         x: vp.x,
         y: vp.y,
         ua: vp.ua || '',
+        flowFrozen: Boolean(vp.flowFrozen),
+        flowNodeId: vp.flowNodeId || null,
+        flowUrl: vp.flowUrl || null,
+        flowTitle: vp.flowTitle || null,
+        flowScreenshot: vp.flowScreenshot || null,
       })),
     })),
   };
@@ -3142,10 +3983,14 @@ function persistWorkspaceToStorage() {
     localStorage.setItem(WORKSPACE_STORAGE_KEY, json);
   } catch (error) {
     console.warn('Failed to persist workspace to localStorage', error);
+    showToast('ワークスペースの自動保存に失敗しました（ストレージ容量を確認してください）', 'error');
   }
 
   if (window.electronAPI?.writePersistedWorkspace) {
-    return window.electronAPI.writePersistedWorkspace(json);
+    return window.electronAPI.writePersistedWorkspace(json).catch((error) => {
+      console.warn('Failed to persist workspace to disk', error);
+      showToast('ワークスペースのディスク保存に失敗しました', 'error');
+    });
   }
   return Promise.resolve();
 }
@@ -3177,11 +4022,15 @@ async function hydrateWorkspaceOnLaunch() {
 
   try {
     const data = JSON.parse(raw);
-    if (!rebuildWorkspaceFromData(data)) return false;
+    if (!rebuildWorkspaceFromData(data)) {
+      showToast('保存データの形式が不正です。ホームから新しく始めます', 'warning');
+      return false;
+    }
     await persistWorkspaceNow();
     return true;
   } catch (error) {
     console.warn('Failed to parse saved workspace', error);
+    showToast('保存データを読み込めませんでした。ホームから新しく始めます', 'warning');
     return false;
   }
 }
@@ -3227,12 +4076,19 @@ function rebuildWorkspaceFromData(data) {
         x: vp.x,
         y: vp.y,
         ua: vp.ua || '',
+        flowFrozen: Boolean(vp.flowFrozen),
+        flowNodeId: vp.flowNodeId || null,
+        flowUrl: vp.flowUrl || null,
+        flowTitle: vp.flowTitle || null,
+        flowScreenshot: vp.flowScreenshot || null,
       })),
       panX: tabState.panX ?? 0,
       panY: tabState.panY ?? 0,
       workspaceZoom: tabState.workspaceZoom ?? 1,
       selectedViewportId: tabState.selectedViewportId ?? null,
       hibernated: false,
+      boardMode: tabState.boardMode === 'flow' ? 'flow' : 'canvas',
+      flow: tabState.flow || (tabState.boardMode === 'flow' ? { nodes: [], edges: [] } : null),
     };
 
     tab.viewports.forEach(ensureViewportUa);
@@ -3273,10 +4129,17 @@ async function saveWorkspaceToFile() {
   const result = await window.electronAPI.saveWorkspaceFile(json);
   if (result.success) {
     showToast('ワークスペースを保存しました', 'success');
+  } else if (result.error && result.error !== 'cancelled') {
+    showToast(`保存に失敗しました: ${result.error}`, 'error');
   }
 }
 
-async function loadWorkspaceFromFile() {
+async function loadWorkspaceFromFile({ skipConfirm = false } = {}) {
+  if (!skipConfirm) {
+    const ok = window.confirm('現在のボードとタブをすべて置き換えます。よろしいですか？');
+    if (!ok) return;
+  }
+
   const result = await window.electronAPI.loadWorkspaceFile();
   if (!result.success || !result.data) return;
 
@@ -3284,12 +4147,13 @@ async function loadWorkspaceFromFile() {
     persistWorkspaceNow();
     showToast('ワークスペースを読み込みました', 'success');
   } else {
-    showToast('ワークスペースの形式が不正です');
+    showToast('ワークスペースの形式が不正です', 'error');
   }
 }
 
 const CANVAS_PADDING = 240;
 const FRAME_GAP = 96;
+const FLOW_FRAME_GAP = 80;
 const MIN_CANVAS_W = 4800;
 const MIN_CANVAS_H = 3600;
 
@@ -3553,7 +4417,7 @@ function tabTitleFromUrl(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, '');
   } catch {
-    return 'New Tab';
+    return '新しいタブ';
   }
 }
 
@@ -3669,10 +4533,13 @@ function syncAllViewportFavicons(tab) {
   tab.viewports.forEach(vp => syncViewportFavicon(vp, tab));
 }
 
-function createBrowserTab(url = 'https://example.com', { viewports: customViewports } = {}) {
+function createBrowserTab(url = 'https://example.com', { viewports: customViewports, boardMode = 'canvas' } = {}) {
+  const isFlow = boardMode === 'flow';
   const viewportsList = customViewports?.length
     ? cloneViewportsFromTemplate(customViewports)
-    : createDefaultViewports();
+    : isFlow
+      ? createFlowViewports()
+      : createDefaultViewports();
 
   return {
     id: ++browserTabIdCounter,
@@ -3685,7 +4552,32 @@ function createBrowserTab(url = 'https://example.com', { viewports: customViewpo
     workspaceZoom: 1.0,
     selectedViewportId: null,
     hibernated: false,
+    boardMode: isFlow ? 'flow' : 'canvas',
+    flow: isFlow ? { nodes: [], edges: [] } : null,
   };
+}
+
+function createFlowViewports() {
+  const id = ++viewportIdCounter;
+  return [{
+    id,
+    name: 'Start',
+    width: 1280,
+    height: 800,
+    x: CANVAS_PADDING,
+    y: CANVAS_PADDING,
+    ua: '',
+    flowNodeId: `flow-node-${id}`,
+  }];
+}
+
+function isFlowTab(tab) {
+  return Boolean(tab && tab.boardMode === 'flow');
+}
+
+function getFlowActiveViewport(tab = getActiveTab()) {
+  if (!isFlowTab(tab)) return null;
+  return tab.viewports.find(vp => !vp.flowFrozen) || null;
 }
 
 function getActiveTab() {
@@ -3810,7 +4702,7 @@ function getCanvasContentBounds(tab) {
 
   tab.viewports.forEach(vp => {
     width = Math.max(width, vp.x + vp.width + CANVAS_PADDING);
-    height = Math.max(height, vp.y + vp.height + VIEWPORT_HEADER_H + CANVAS_PADDING);
+    height = Math.max(height, vp.y + vp.height + getViewportChromeHeight(vp) + CANVAS_PADDING);
   });
 
   return { width, height };
@@ -3936,7 +4828,7 @@ function getSpawnPosition(width, height) {
 
   return {
     x: Math.round(cx - width / 2) + stack,
-    y: Math.round(cy - height / 2 - VIEWPORT_HEADER_H) + stack,
+    y: Math.round(cy - height / 2 - BASE_FRAME_HEADER_H) + stack,
   };
 }
 
@@ -3956,6 +4848,8 @@ function selectViewport(vpId) {
   renderPropertiesPanel();
   renderLayersPanel();
   if (isLayoutAuditPanelVisible()) renderLayoutAuditPanel();
+  if (workspaceMode === 'audit') renderAuditFrameSelect();
+  if (workspaceMode === 'console') renderConsoleFrameSelect();
   if (inspectModeActive) setInspectMode(true);
   if (vpId !== null) activateDesignTab();
 }
@@ -3973,14 +4867,54 @@ function getSelectedViewport() {
 }
 
 function activateDesignTab() {
-  const designBtn = document.querySelector('.rail-btn[data-tab="tab-design"]');
-  const designPane = document.getElementById('tab-design');
-  if (!designBtn || !designPane) return;
+  // Right panel is properties-only; no tab switching.
+}
 
-  tabButtons.forEach(b => b.classList.remove('active'));
-  tabPanes.forEach(p => p.classList.remove('active'));
-  designBtn.classList.add('active');
-  designPane.classList.add('active');
+const VISION_FILTER_LABELS = {
+  normal: '標準',
+  protanopia: '1型2色覚',
+  deuteranopia: '2型2色覚',
+  tritanopia: '3型2色覚',
+  achromatopsia: '全色盲',
+};
+
+function updateVisionMenuButton() {
+  if (!btnVisionMenu) return;
+  const label = VISION_FILTER_LABELS[activeVisionFilter] || '標準';
+  const isActive = activeVisionFilter !== 'normal';
+  btnVisionMenu.classList.toggle('active', isActive);
+  applyUiTip(btnVisionMenu, isActive ? `色覚: ${label}` : '色覚シミュレータ');
+}
+
+function toggleVisionMenu(forceOpen) {
+  if (!visionMenu || !btnVisionMenu) return;
+  const willOpen = forceOpen ?? visionMenu.hidden;
+  visionMenu.hidden = !willOpen;
+  btnVisionMenu.classList.toggle('active', willOpen || activeVisionFilter !== 'normal');
+  btnVisionMenu.setAttribute('aria-expanded', String(willOpen));
+}
+
+function closeVisionMenu() {
+  toggleVisionMenu(false);
+  updateVisionMenuButton();
+}
+
+function setupVisionMenu() {
+  btnVisionMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleVisionMenu(visionMenu.hidden);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.vision-menu-wrap')) return;
+    closeVisionMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeVisionMenu();
+  });
+
+  updateVisionMenuButton();
 }
 
 function renderPropertiesPanel() {
@@ -3989,15 +4923,25 @@ function renderPropertiesPanel() {
   const vp = getSelectedViewport();
   if (!vp) {
     propsForm.hidden = true;
+    if (propsEmpty) propsEmpty.hidden = false;
     return;
   }
 
+  if (propsEmpty) propsEmpty.hidden = true;
   propsForm.hidden = false;
   propName.value = vp.name;
   propX.value = vp.x;
   propY.value = vp.y;
   propW.value = vp.width;
   propH.value = vp.height;
+
+  if (propFrameSize) {
+    propFrameSize.textContent = `${vp.width} × ${vp.height}`;
+  }
+  if (propFrameUaLabel) {
+    propFrameUaLabel.textContent = getUaLabel(vp);
+    propFrameUaLabel.classList.toggle('is-desktop', getUaLabel(vp) === 'Desktop');
+  }
 
   const profile = detectUaProfile(vp.ua || '');
   if (propUaProfile) propUaProfile.value = profile;
@@ -4237,6 +5181,7 @@ function setupViewportMenu() {
 async function init() {
   loadUrlHistory();
   initTheme();
+  loadPanelWidths();
 
   if (!(await hydrateWorkspaceOnLaunch())) {
     enterHomeScreen({ persist: true });
@@ -4246,14 +5191,18 @@ async function init() {
   setupEventListeners();
   setupGlobalShortcuts();
   setupViewportMenu();
+  setupVisionMenu();
   setupPropertiesPanel();
   setupLeftPanelSplit();
+  setupPanelWidthResize();
+  setupWorkspaceModes();
   setupInspectorPanel();
   initUiTooltipLayer();
   setupUiTooltips();
   renderPropertiesPanel();
   renderLayersPanel();
   showWelcomeHint();
+  updateNavigationButtons();
 
   const rawPrefs = localStorage.getItem(WORKSPACE_STORAGE_KEY);
   if (rawPrefs && isHomeActive()) {
@@ -4346,6 +5295,7 @@ function setupEventListeners() {
 
   // Sync Toggle
   btnToggleSync.addEventListener('click', () => {
+    if (isFlowTab(getActiveTab())) return;
     syncEnabled = !syncEnabled;
     btnToggleSync.classList.toggle('active', syncEnabled);
     applyUiTip(btnToggleSync, syncEnabled
@@ -4381,6 +5331,22 @@ function setupEventListeners() {
   modalShortcutsClose?.addEventListener('click', () => closeShortcutsModal());
   modalShortcuts?.addEventListener('click', (e) => {
     if (e.target === modalShortcuts) closeShortcutsModal();
+  });
+
+  btnSettings?.addEventListener('click', () => openSettingsModal());
+  modalSettingsClose?.addEventListener('click', () => closeSettingsModal());
+  modalSettings?.addEventListener('click', (e) => {
+    if (e.target === modalSettings) closeSettingsModal();
+  });
+  [
+    settingZoomToFit,
+    settingTabHibernation,
+    settingFrameSnapVisual,
+    settingFrameSnapHaptic,
+    settingBpHaptic,
+    settingBpHapticVisual,
+  ].forEach(el => {
+    el?.addEventListener('change', () => applySettingFromUi());
   });
 
   // Zoom controls
@@ -4427,6 +5393,7 @@ function setupEventListeners() {
   btnToggleLeftPanel?.addEventListener('click', () => {
     const isCollapsed = leftPanel?.classList.toggle('collapsed');
     btnToggleLeftPanel.classList.toggle('active', !isCollapsed);
+    reflowPanelWidths();
     scheduleWorkspacePersist();
   });
 
@@ -4434,30 +5401,12 @@ function setupEventListeners() {
   btnToggleSidebar.addEventListener('click', () => {
     const isCollapsed = sidebarPanel.classList.toggle('collapsed');
     btnToggleSidebar.classList.toggle('active', !isCollapsed);
+    reflowPanelWidths();
     scheduleWorkspacePersist();
   });
 
   btnAlignCenter?.addEventListener('click', () => alignSelectedViewportCenter());
   btnArrangeRow?.addEventListener('click', () => arrangeViewportsInRow());
-
-  // Sidebar Tabs
-  tabButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
-      tabButtons.forEach(b => b.classList.remove('active'));
-      tabPanes.forEach(p => p.classList.remove('active'));
-
-      btn.classList.add('active');
-      const paneId = btn.dataset.tab;
-      document.getElementById(paneId).classList.add('active');
-
-      if (paneId === 'tab-seo' || paneId === 'tab-seo-audit' || paneId === 'tab-outline') {
-        requestSeoAuditRefresh();
-      }
-      if (paneId === 'tab-layout') {
-        requestLayoutAuditAll();
-      }
-    });
-  });
 
   btnLayoutAuditRefresh?.addEventListener('click', () => {
     requestLayoutAuditAll();
@@ -4478,40 +5427,96 @@ function setupEventListeners() {
   visionRadioButtons.forEach(radio => {
     radio.addEventListener('change', (e) => {
       activeVisionFilter = e.target.value;
-      
-      // Update radio UI cards
-      document.querySelectorAll('.vision-option').forEach(card => card.classList.remove('active'));
-      e.target.closest('.vision-option').classList.add('active');
 
-      // Apply vision filter to all viewports
+      document.querySelectorAll('.vision-option').forEach(card => card.classList.remove('active'));
+      e.target.closest('.vision-option')?.classList.add('active');
+
       forEachWebview(wv => {
         wv.send('apply-vision-filter', activeVisionFilter);
       });
-      showToast(`視覚特性フィルター: ${e.target.closest('.vision-option').querySelector('.vision-title').innerText}`);
+      const label = e.target.closest('.vision-option')?.querySelector('.vision-title')?.textContent || '';
+      if (label) showToast(`視覚特性フィルター: ${label}`);
       scheduleWorkspacePersist();
+      closeVisionMenu();
+      updateVisionMenuButton();
     });
   });
 
   // Clear Console Button
-  btnClearConsole.addEventListener('click', () => {
+  btnClearConsole?.addEventListener('click', () => {
     consoleLogs = [];
+    consoleUserScrolledUp = false;
     renderConsoleLogs();
+    showToast('ログをクリアしました');
+  });
+
+  btnConsoleCopy?.addEventListener('click', () => {
+    copyConsoleLogsToClipboard();
+  });
+
+  btnConsoleErrorsOnly?.addEventListener('click', () => {
+    if (logFilterInfo) logFilterInfo.checked = false;
+    if (logFilterWarn) logFilterWarn.checked = false;
+    if (logFilterError) logFilterError.checked = true;
+    renderConsoleLogs();
+    scheduleWorkspacePersist();
+  });
+
+  consoleFrameSelect?.addEventListener('change', () => {
+    const vpId = Number(consoleFrameSelect.value);
+    if (vpId) selectViewport(vpId);
+    renderConsoleLogs();
+  });
+
+  consoleSearch?.addEventListener('input', () => {
+    consoleSearchQuery = consoleSearch.value.trim().toLowerCase();
+    renderConsoleLogs();
+  });
+
+  consoleAutoScroll?.addEventListener('change', () => {
+    if (consoleAutoScroll.checked) {
+      consoleUserScrolledUp = false;
+      renderConsoleLogs();
+    }
+    scheduleWorkspacePersist();
+  });
+
+  consoleLogsContainer?.addEventListener('scroll', () => {
+    if (!consoleLogsContainer) return;
+    const nearBottom = consoleLogsContainer.scrollHeight - consoleLogsContainer.scrollTop - consoleLogsContainer.clientHeight < 48;
+    consoleUserScrolledUp = !nearBottom;
+  });
+
+  // Console Filters
+  [logFilterInfo, logFilterWarn, logFilterError].forEach(filter => {
+    filter?.addEventListener('change', () => {
+      renderConsoleLogs();
+      scheduleWorkspacePersist();
+    });
   });
 
   btnSeoAuditRefresh?.addEventListener('click', () => {
     requestSeoAuditRefresh();
     showToast('SEO 監査を更新しています…');
   });
-
-  // Console Filters
-  [logFilterInfo, logFilterWarn, logFilterError].forEach(filter => {
-    filter.addEventListener('change', renderConsoleLogs);
-  });
 }
 
 // -------------------------------------------------------------
 // Workspace UI Helper Functions
 // -------------------------------------------------------------
+
+function applyFrameHeaderChrome(vp, shell, card, header) {
+  const { density, scale, headerH } = getFrameHeaderPresentation(vp);
+
+  shell.style.height = `${vp.height + headerH}px`;
+  shell.style.setProperty('--frame-header-h', `${headerH}px`);
+  shell.style.setProperty('--frame-header-scale', String(scale));
+  shell.dataset.headerDensity = density;
+
+  card.style.paddingTop = `${headerH}px`;
+  header.style.height = `${headerH}px`;
+  header.style.minHeight = `${headerH}px`;
+}
 
 function syncViewportFrame(vp, tab) {
   const uid = `${tab.id}-${vp.id}`;
@@ -4521,12 +5526,12 @@ function syncViewportFrame(vp, tab) {
   const webview = document.getElementById(`wv-${uid}`);
   if (!shell || !card || !wrapper || !webview) return;
 
-  const totalH = vp.height + VIEWPORT_HEADER_H;
+  const header = card.querySelector('.viewport-header.frame-bar');
+  if (header) applyFrameHeaderChrome(vp, shell, card, header);
 
   shell.style.left = `${vp.x}px`;
   shell.style.top = `${vp.y}px`;
   shell.style.width = `${vp.width}px`;
-  shell.style.height = `${totalH}px`;
   shell.classList.toggle('is-selected', vp.id === selectedViewportId);
 
   card.style.width = `${vp.width}px`;
@@ -4593,17 +5598,17 @@ function resumeBrowserTab(tab) {
   if (!canvas) return;
 
   ensureViewportPositions(tab.viewports);
-  tab.viewports.forEach(vp => renderViewport(vp, tab, canvas));
-  updateCanvasSurface(tab);
+  renderTabViewports(tab, canvas);
   tab.hibernated = false;
   applySyncCaptureToTab(tab);
   maybeShowHibernationHint();
 }
 
-function applySyncCaptureToWebview(webview) {
+function applySyncCaptureToWebview(webview, { flowMode = false } = {}) {
   if (!webview) return;
   try {
-    webview.send('set-sync-capture', syncEnabled);
+    webview.send('set-sync-capture', !flowMode && syncEnabled);
+    webview.send('set-flow-mode', flowMode);
   } catch {
     // webview may not be ready yet
   }
@@ -4611,26 +5616,29 @@ function applySyncCaptureToWebview(webview) {
 
 function applySyncCaptureToTab(tab) {
   if (!tab) return;
+  const flowOn = isFlowTab(tab) && tab.id === activeBrowserTabId;
   tab.viewports.forEach(vp => {
-    applySyncCaptureToWebview(document.getElementById(`wv-${tab.id}-${vp.id}`));
+    if (vp.flowFrozen) return;
+    applySyncCaptureToWebview(
+      document.getElementById(`wv-${tab.id}-${vp.id}`),
+      { flowMode: flowOn },
+    );
   });
 }
 
 function applySyncCaptureToAllWebviews() {
-  forEachWebview(applySyncCaptureToWebview);
+  browserTabs.forEach(tab => applySyncCaptureToTab(tab));
 }
 
 function isSeoMetadataPanelVisible() {
-  return Boolean(
-    document.getElementById('tab-seo')?.classList.contains('active')
-    || document.getElementById('tab-seo-audit')?.classList.contains('active')
-    || document.getElementById('tab-outline')?.classList.contains('active')
-  );
+  if (workspaceMode === 'audit') return true;
+  return false;
 }
 
 function requestPrimaryMetadataIfNeeded(tab = getActiveTab()) {
   if (!isSeoMetadataPanelVisible() || !tab?.viewports?.length) return;
-  const vp = tab.viewports[0];
+  const vp = workspaceMode === 'audit' ? getAuditTargetViewport(tab) : tab.viewports[0];
+  if (!vp) return;
   const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
   if (webview) webview.send('request-metadata');
 }
@@ -4640,7 +5648,7 @@ function layoutAuditKey(tabId, vpId) {
 }
 
 function isLayoutAuditPanelVisible() {
-  return Boolean(document.getElementById('tab-layout')?.classList.contains('active'));
+  return workspaceMode === 'audit' && auditSubTab === 'tab-layout';
 }
 
 function requestLayoutAuditForViewport(vp, tab = getActiveTab()) {
@@ -4679,7 +5687,9 @@ function renderLayoutAuditPanel() {
     layoutAuditSummary.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">フレームがありません</p></div>';
     layoutAuditFrames.innerHTML = '';
     layoutAuditOffenders.innerHTML = '';
-    if (layoutAuditBadge) layoutAuditBadge.style.display = 'none';
+    auditBadgeLayoutCount = 0;
+    if (layoutAuditBadge) layoutAuditBadge.hidden = true;
+    updateAuditModeBadge();
     return;
   }
 
@@ -4722,15 +5732,21 @@ function renderLayoutAuditPanel() {
     layoutAuditSummary.appendChild(err);
   }
 
+  auditBadgeLayoutCount = overflowCount;
   if (layoutAuditBadge) {
     if (overflowCount > 0) {
       layoutAuditBadge.textContent = String(overflowCount);
-      layoutAuditBadge.style.display = '';
+      layoutAuditBadge.hidden = false;
       layoutAuditBadge.classList.add('is-error');
     } else {
-      layoutAuditBadge.style.display = 'none';
+      layoutAuditBadge.hidden = true;
       layoutAuditBadge.classList.remove('is-error');
     }
+  }
+  updateAuditModeBadge();
+
+  if (auditSubTab === 'tab-meta' && lastAuditMetadata) {
+    renderMetadataOverview(lastAuditMetadata);
   }
 
   const selectedVp = tab.viewports.find(v => v.id === selectedViewportId) || tab.viewports[0];
@@ -4809,6 +5825,11 @@ function setActiveBrowserTab(id) {
   renderPropertiesPanel();
   renderLayersPanel();
   updateHomeScreenState();
+  updateNavigationButtons();
+  renderAuditFrameSelect();
+  renderConsoleFrameSelect();
+  updateFlowChrome(tab);
+  syncFlowModeForTab(tab);
   persistWorkspaceNow().catch(() => {});
 }
 
@@ -4859,7 +5880,7 @@ function renderBrowserTabs() {
 
   browserTabs.forEach(tab => {
     const el = document.createElement('div');
-    el.className = `browser-tab${tab.id === activeBrowserTabId ? ' active' : ''}`;
+    el.className = `browser-tab${tab.id === activeBrowserTabId ? ' active' : ''}${isFlowTab(tab) ? ' is-flow' : ''}`;
     el.setAttribute('role', 'tab');
     el.setAttribute('aria-selected', tab.id === activeBrowserTabId ? 'true' : 'false');
 
@@ -4915,10 +5936,21 @@ function renderBrowserTabPanel(tab, { hibernated = false } = {}) {
   tab.hibernated = hibernated;
 
   if (!hibernated) {
-    ensureViewportPositions(tab.viewports);
-    tab.viewports.forEach(vp => renderViewport(vp, tab, canvas));
-    updateCanvasSurface(tab);
+    renderTabViewports(tab, canvas);
   }
+}
+
+function renderTabViewports(tab, canvas) {
+  ensureViewportPositions(tab.viewports);
+  tab.viewports.forEach(vp => {
+    if (vp.flowFrozen) renderFlowFrozenViewport(vp, tab, canvas);
+    else renderViewport(vp, tab, canvas);
+  });
+  if (isFlowTab(tab)) {
+    renderFlowEdges(tab);
+    syncFlowModeForTab(tab);
+  }
+  updateCanvasSurface(tab);
 }
 
 function removeViewport(vpId) {
@@ -4971,20 +6003,27 @@ const updateWorkspaceZoom = updateWorkspaceTransform;
 
 
 function showToast(message, type = 'info') {
+  const titles = {
+    success: '完了',
+    error: 'エラー',
+    warning: '注意',
+    info: '情報',
+  };
+  const toastClass = ['success', 'error', 'warning'].includes(type) ? type : '';
   const toast = document.createElement('div');
-  toast.className = `toast ${type === 'success' ? 'success' : ''}`;
+  toast.className = `toast ${toastClass}`.trim();
   toast.innerHTML = `
-    <div class="toast-title">${type === 'success' ? '完了' : '情報'}</div>
-    <div class="toast-msg">${message}</div>
+    <div class="toast-title">${titles[type] || titles.info}</div>
+    <div class="toast-msg">${escapeHTML(message)}</div>
   `;
   toastContainer.appendChild(toast);
   
   setTimeout(() => {
-    toast.style.animation = 'none'; // Clear animation
+    toast.style.animation = 'none';
     setTimeout(() => {
       toast.remove();
     }, 300);
-  }, 4000);
+  }, type === 'error' ? 6000 : 4000);
 }
 
 function forEachWebview(callback) {
@@ -5003,6 +6042,28 @@ function forEachWebview(callback) {
 // Navigation Sync Logic
 // -------------------------------------------------------------
 
+function navigateWebview(webview, url) {
+  if (!webview || !url) return;
+  try {
+    if (typeof webview.loadURL === 'function') {
+      webview.loadURL(url);
+    } else {
+      webview.src = url;
+    }
+  } catch {
+    webview.src = url;
+  }
+}
+
+function resolveNavigationUrl(raw) {
+  if (!raw) return '';
+  try {
+    return new URL(raw).href;
+  } catch {
+    return normalizeUserUrl(raw) || raw;
+  }
+}
+
 function navigateAll(url) {
   const normalized = normalizeUserUrl(url);
   if (!normalized) return;
@@ -5016,11 +6077,23 @@ function navigateAll(url) {
   urlInput.value = normalized;
   pushUrlHistory(normalized);
 
+  if (isFlowTab(tab)) {
+    const activeVp = getFlowActiveViewport(tab);
+    if (activeVp) {
+      clearFrameLoadError(activeVp, tab);
+      invalidateDomTree(activeVp, tab);
+      const webview = document.getElementById(`wv-${tab.id}-${activeVp.id}`);
+      if (webview) navigateWebview(webview, normalized);
+    }
+    clearDomSelection();
+    return;
+  }
+
   tab.viewports.forEach(vp => {
     clearFrameLoadError(vp, tab);
     invalidateDomTree(vp, tab);
     const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
-    if (webview) webview.src = normalized;
+    if (webview) navigateWebview(webview, normalized);
   });
   clearDomSelection();
 }
@@ -5029,7 +6102,7 @@ function navigateAll(url) {
 // Render Viewports Dynamically
 // -------------------------------------------------------------
 
-function renderViewport(vp, tab, canvas) {
+function renderViewport(vp, tab, canvas, { initialUrl } = {}) {
   const uid = `${tab.id}-${vp.id}`;
 
   const card = document.createElement('div');
@@ -5042,7 +6115,7 @@ function renderViewport(vp, tab, canvas) {
   header.innerHTML = `
     <div class="vp-drag-handle" title="ドラッグして移動">
       <span class="vp-frame-icon" aria-hidden="true"></span>
-      <span class="vp-primary-badge"${tab.viewports[0]?.id === vp.id ? '' : ' hidden'}>Primary</span>
+      <span class="vp-primary-badge"${tab.viewports[0]?.id === vp.id ? '' : ' hidden'}>プライマリ</span>
       <span class="vp-name">${escapeHTML(vp.name)}</span>
       <span class="vp-ua-badge ${getUaLabel(vp) === 'Desktop' ? 'is-desktop' : ''}">${escapeHTML(getUaLabel(vp))}</span>
       <span class="vp-size">${vp.width} × ${vp.height} px</span>
@@ -5117,9 +6190,10 @@ function renderViewport(vp, tab, canvas) {
 
   syncViewportFrame(vp, tab);
   syncViewportFavicon(vp, tab);
-  webview.src = tab.url;
 
   setupWebviewHooks(webview, vp, tab);
+
+  navigateWebview(webview, initialUrl || tab.url);
 
   header.querySelector('.screenshot').addEventListener('click', () => captureSingleViewport(vp));
   header.querySelector('.devtools').addEventListener('click', () => {
@@ -5194,7 +6268,9 @@ function setupWebviewHooks(webview, vp, tab) {
 
     window.electronAPI.setUserAgent(vp.webContentsId, vp.ua || '');
 
-    applySyncCaptureToWebview(webview);
+    applySyncCaptureToWebview(webview, {
+      flowMode: isFlowTab(tab) && tab.id === activeBrowserTabId && !vp.flowFrozen,
+    });
 
     if (cssOutlineEnabled) {
       webview.send('toggle-css-outline', true);
@@ -5232,14 +6308,25 @@ function setupWebviewHooks(webview, vp, tab) {
         urlInput.value = newURL;
       }
 
-      tab.viewports.forEach(otherVp => {
-        if (otherVp.id !== vp.id) {
-          const otherWv = document.getElementById(`wv-${tab.id}-${otherVp.id}`);
-          if (otherWv && otherWv.src !== newURL) {
-            otherWv.src = newURL;
+      if (!isFlowTab(tab)) {
+        tab.viewports.forEach(otherVp => {
+          if (otherVp.id !== vp.id && !otherVp.flowFrozen) {
+            const otherWv = document.getElementById(`wv-${tab.id}-${otherVp.id}`);
+            if (otherWv && otherWv.getURL?.() !== newURL && otherWv.src !== newURL) {
+              navigateWebview(otherWv, newURL);
+            }
           }
-        }
-      });
+        });
+      }
+    }
+    if (tab.id === activeBrowserTabId) {
+      requestAnimationFrame(() => updateNavigationButtons());
+    }
+  });
+
+  webview.addEventListener('did-navigate-in-page', () => {
+    if (tab.id === activeBrowserTabId) {
+      requestAnimationFrame(() => updateNavigationButtons());
     }
   });
 
@@ -5285,10 +6372,22 @@ function setupWebviewHooks(webview, vp, tab) {
       return;
     }
 
+    if (channel === 'guest-flow-navigate') {
+      if (
+        isFlowTab(tab)
+        && tab.id === activeBrowserTabId
+        && vp.id === getFlowActiveViewport(tab)?.id
+        && data?.href
+      ) {
+        handleFlowNavigate(tab, vp, data);
+      }
+      return;
+    }
+
     if (tab.id !== activeBrowserTabId) return;
 
     if (channel === 'guest-scroll') {
-      if (!syncEnabled) return;
+      if (!syncEnabled || isFlowTab(tab)) return;
       tab.viewports.forEach(otherVp => {
         if (otherVp.id !== vp.id) {
           const otherWv = document.getElementById(`wv-${tab.id}-${otherVp.id}`);
@@ -5299,7 +6398,7 @@ function setupWebviewHooks(webview, vp, tab) {
       if (data?.selector && vp.id === selectedViewportId && !inspectModeActive) {
         highlightDomElement(vp, tab, data.selector);
       }
-      if (!syncEnabled) return;
+      if (!syncEnabled || isFlowTab(tab)) return;
       tab.viewports.forEach(otherVp => {
         if (otherVp.id !== vp.id) {
           const otherWv = document.getElementById(`wv-${tab.id}-${otherVp.id}`);
@@ -5307,7 +6406,7 @@ function setupWebviewHooks(webview, vp, tab) {
         }
       });
     } else if (channel === 'guest-input') {
-      if (!syncEnabled) return;
+      if (!syncEnabled || isFlowTab(tab)) return;
       tab.viewports.forEach(otherVp => {
         if (otherVp.id !== vp.id) {
           const otherWv = document.getElementById(`wv-${tab.id}-${otherVp.id}`);
@@ -5320,8 +6419,11 @@ function setupWebviewHooks(webview, vp, tab) {
         if (data?.faviconUrl) {
           setTabFavicon(tab, data.faviconUrl);
         }
-        updateSidebarAudits(data);
         updateBreakpointsRuler(data.breakpoints);
+      }
+      const auditVp = getAuditTargetViewport(tab);
+      if (auditVp && auditVp.id === vp.id) {
+        updateSidebarAudits(data);
       }
     }
   });
@@ -5333,12 +6435,14 @@ function setupWebviewHooks(webview, vp, tab) {
       level: e.level,
       message: e.message,
       source: `${tab.title} / ${vp.name}`,
+      tabId: tab.id,
+      vpId: vp.id,
       time: new Date().toLocaleTimeString(),
       id: Date.now() + Math.random()
     };
 
     consoleLogs.push(log);
-    if (consoleLogs.length > 500) consoleLogs.shift();
+    if (consoleLogs.length > CONSOLE_LOG_CAP) consoleLogs.shift();
     renderConsoleLogs();
     if (activeInspectorTab === 'console') renderInspectorConsole();
   });
@@ -5742,24 +6846,168 @@ function renderSeoAuditPanel(metadata) {
     seoAuditList.appendChild(li);
   });
 
+  auditBadgeSeoCount = counts.error + counts.warning;
   if (seoAuditBadge) {
-    const badgeCount = counts.error + counts.warning;
-    if (badgeCount > 0) {
-      seoAuditBadge.textContent = String(badgeCount);
-      seoAuditBadge.style.display = '';
+    if (auditBadgeSeoCount > 0) {
+      seoAuditBadge.textContent = String(auditBadgeSeoCount);
+      seoAuditBadge.hidden = false;
       seoAuditBadge.classList.toggle('is-error', counts.error > 0);
     } else {
-      seoAuditBadge.style.display = 'none';
+      seoAuditBadge.hidden = true;
     }
   }
+  updateAuditModeBadge();
 }
 
 function requestSeoAuditRefresh() {
   const tab = getActiveTab();
-  if (!tab || tab.viewports.length === 0) return;
-  const vp = tab.viewports[0];
+  const vp = getAuditTargetViewport(tab);
+  if (!vp || !tab) return;
   const webview = document.getElementById(`wv-${tab.id}-${vp.id}`);
   if (webview) webview.send('request-metadata');
+}
+
+function getLayoutOverflowFrameCount(tab = getActiveTab()) {
+  if (!tab?.viewports?.length) return 0;
+  let count = 0;
+  tab.viewports.forEach(vp => {
+    const audit = layoutAuditByFrame.get(layoutAuditKey(tab.id, vp.id));
+    if (audit?.hasHorizontalOverflow) count += 1;
+  });
+  return count;
+}
+
+function metaCharStatus(len, min, max) {
+  if (!len) return 'is-error';
+  if (len < min || len > max) return 'is-warning';
+  return 'is-ok';
+}
+
+function formatMetaValue(value) {
+  if (value === null || value === undefined || value === '') {
+    return '<span class="meta-field-empty">（未設定）</span>';
+  }
+  if (typeof value === 'boolean') {
+    return escapeHTML(value ? 'あり' : 'なし');
+  }
+  return escapeHTML(String(value));
+}
+
+function renderMetaFieldRow(label, value, meta = '') {
+  const metaHtml = meta ? `<span class="meta-field-meta">${escapeHTML(meta)}</span>` : '';
+  return `
+    <div class="meta-field-row">
+      <dt class="meta-field-label">${escapeHTML(label)}</dt>
+      <dd class="meta-field-value-wrap">
+        <span class="meta-field-value">${formatMetaValue(value)}</span>
+        ${metaHtml}
+      </dd>
+    </div>
+  `;
+}
+
+function renderMetadataOverview(metadata) {
+  const container = document.getElementById('meta-overview');
+  if (!container) return;
+
+  if (!metadata) {
+    container.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">ページを読み込むとメタデータが表示されます</p></div>';
+    return;
+  }
+
+  const titleLen = (metadata.title || '').length;
+  const descLen = (metadata.description || '').length;
+  const images = metadata.images || [];
+  const missingAlt = images.filter(img => !img.hasAlt).length;
+  const emptyAlt = images.filter(img => img.altEmpty).length;
+  const okAlt = images.length - missingAlt - emptyAlt;
+  const headerCount = metadata.headers?.length || 0;
+  const breakpointCount = metadata.breakpoints?.length || 0;
+  const issues = buildSeoAuditIssues(metadata);
+  const seoProblems = issues.filter(i => i.id !== 'all-clear' && (i.severity === 'error' || i.severity === 'warning')).length;
+  const layoutOverflow = getLayoutOverflowFrameCount();
+
+  const stats = [
+    { label: 'タイトル', value: titleLen, unit: '文字', status: metaCharStatus(titleLen, 10, 60) },
+    { label: 'description', value: descLen, unit: '文字', status: metaCharStatus(descLen, 50, 160) },
+    { label: 'H1', value: metadata.h1Count ?? 0, unit: '件', status: metadata.h1Count === 1 ? 'is-ok' : 'is-warning' },
+    { label: '見出し', value: headerCount, unit: '件', status: headerCount ? 'is-ok' : 'is-warning' },
+    { label: '画像', value: images.length, unit: '件', status: images.length ? 'is-ok' : 'is-info' },
+    { label: 'alt 未設定', value: missingAlt, unit: '件', status: missingAlt ? 'is-error' : 'is-ok' },
+    { label: 'alt 空', value: emptyAlt, unit: '件', status: emptyAlt ? 'is-warning' : 'is-ok' },
+    { label: 'alt OK', value: okAlt, unit: '件', status: okAlt ? 'is-ok' : 'is-info' },
+    { label: 'ブレークポイント', value: breakpointCount, unit: '件', status: breakpointCount ? 'is-ok' : 'is-info' },
+    { label: 'SEO 問題', value: seoProblems, unit: '件', status: seoProblems ? 'is-error' : 'is-ok' },
+    { label: '横スクロール', value: layoutOverflow, unit: 'フレーム', status: layoutOverflow ? 'is-error' : 'is-ok' },
+  ];
+
+  const statsHtml = stats.map(s => `
+    <div class="meta-stat-card ${s.status}">
+      <span class="meta-stat-value">${s.value}<span class="meta-stat-unit">${s.unit}</span></span>
+      <span class="meta-stat-label">${escapeHTML(s.label)}</span>
+    </div>
+  `).join('');
+
+  const sections = [
+    {
+      title: 'ページ基本',
+      rows: [
+        ['title', metadata.title, `${titleLen} 文字`],
+        ['description', metadata.description, `${descLen} 文字`],
+        ['lang', metadata.lang],
+        ['charset', metadata.charset],
+        ['canonical', metadata.canonical],
+        ['robots', metadata.robots],
+        ['viewport', metadata.viewportMeta],
+        ['favicon', metadata.hasFavicon, metadata.faviconUrl || ''],
+      ],
+    },
+    {
+      title: 'Open Graph',
+      rows: [
+        ['og:title', metadata.ogTitle],
+        ['og:description', metadata.ogDesc],
+        ['og:image', metadata.ogImage],
+        ['og:type', metadata.ogType],
+        ['og:url', metadata.ogUrl],
+      ],
+    },
+    {
+      title: 'Twitter Card',
+      rows: [
+        ['twitter:card', metadata.twitterCard],
+        ['twitter:title', metadata.twitterTitle],
+        ['twitter:description', metadata.twitterDesc],
+        ['twitter:image', metadata.twitterImage],
+      ],
+    },
+    {
+      title: '構造・メディア',
+      rows: [
+        ['h1 数', metadata.h1Count],
+        ['見出し総数', headerCount],
+        ['画像総数', images.length],
+        ['alt 未設定', missingAlt],
+        ['alt 空文字', emptyAlt],
+        ['alt OK', okAlt],
+        ['メディアクエリ', breakpointCount],
+      ],
+    },
+  ];
+
+  const sectionsHtml = sections.map(section => `
+    <section class="meta-overview-section">
+      <h4 class="meta-overview-section-title">${escapeHTML(section.title)}</h4>
+      <dl class="meta-field-list">
+        ${section.rows.map(([label, value, meta]) => renderMetaFieldRow(label, value, meta)).join('')}
+      </dl>
+    </section>
+  `).join('');
+
+  container.innerHTML = `
+    <div class="meta-stats-grid" aria-label="数値サマリー">${statsHtml}</div>
+    <div class="meta-sections-grid">${sectionsHtml}</div>
+  `;
 }
 
 // -------------------------------------------------------------
@@ -5767,7 +7015,9 @@ function requestSeoAuditRefresh() {
 // -------------------------------------------------------------
 
 function updateSidebarAudits(metadata) {
+  lastAuditMetadata = metadata;
   renderSeoAuditPanel(metadata);
+  renderMetadataOverview(metadata);
 
   let domain = 'example.com';
   try {
@@ -5845,35 +7095,97 @@ function updateSidebarAudits(metadata) {
     });
   }
 
-  // Update Images Alt Checklist
+  renderImageAltAudit(metadata);
+}
+
+function renderImageAltAudit(metadata) {
   const imageAuditList = document.getElementById('image-audit-list');
+  const imageAuditSummary = document.getElementById('image-audit-summary');
+  if (!imageAuditList) return;
+
+  const images = metadata?.images || [];
   imageAuditList.innerHTML = '';
 
-  if (!metadata.images || metadata.images.length === 0) {
+  if (!images.length) {
+    if (imageAuditSummary) imageAuditSummary.hidden = true;
     imageAuditList.innerHTML = '<div class="sidebar-empty sidebar-empty-compact"><p class="sidebar-empty-desc">画像要素（img）が見つかりません。</p></div>';
-  } else {
-    metadata.images.forEach(img => {
-      const card = document.createElement('div');
-      card.className = 'img-audit-card';
-      
-      const cleanSrc = escapeHTML(img.src);
-      
-      card.innerHTML = `
-        <div class="img-audit-thumb">
-          <img src="${cleanSrc}" alt="Audit preview" onerror="this.src='data:image/svg+xml;utf8,<svg xmlns=&quot;http://www.w3.org/2000/svg&quot; width=&quot;100&quot; height=&quot;100&quot; viewBox=&quot;0 0 24 24&quot; fill=&quot;none&quot; stroke=&quot;%2364748b&quot; stroke-width=&quot;2&quot;><rect width=&quot;18&quot; height=&quot;18&quot; x=&quot;3&quot; y=&quot;3&quot; rx=&quot;2&quot;/><circle cx=&quot;9&quot; cy=&quot;9&quot; r=&quot;2&quot;/><path d=&quot;m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21&quot;/></svg>'">
-        </div>
-        <div class="img-audit-info">
-          <span class="img-audit-src">${cleanSrc}</span>
-          ${img.hasAlt && !img.altEmpty
-            ? `<span class="img-audit-status ok">Alt: "${escapeHTML(img.alt)}"</span>`
-            : img.altEmpty
-              ? `<span class="img-audit-status missing">alt が空です</span>`
-              : `<span class="img-audit-status missing">alt 属性なし</span>`}
-        </div>
-      `;
-      imageAuditList.appendChild(card);
-    });
+    return;
   }
+
+  const missingAlt = images.filter(img => !img.hasAlt).length;
+  const emptyAlt = images.filter(img => img.altEmpty).length;
+  const okAlt = images.length - missingAlt - emptyAlt;
+
+  if (imageAuditSummary) {
+    imageAuditSummary.hidden = false;
+    imageAuditSummary.innerHTML = '';
+    if (okAlt) {
+      const pill = document.createElement('span');
+      pill.className = 'image-audit-summary-pill is-ok';
+      pill.textContent = `OK ${okAlt}`;
+      imageAuditSummary.appendChild(pill);
+    }
+    if (emptyAlt) {
+      const pill = document.createElement('span');
+      pill.className = 'image-audit-summary-pill is-warn';
+      pill.textContent = `空 alt ${emptyAlt}`;
+      imageAuditSummary.appendChild(pill);
+    }
+    if (missingAlt) {
+      const pill = document.createElement('span');
+      pill.className = 'image-audit-summary-pill is-error';
+      pill.textContent = `未設定 ${missingAlt}`;
+      imageAuditSummary.appendChild(pill);
+    }
+  }
+
+  const placeholderSvg = encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="120" height="120" viewBox="0 0 24 24" fill="none" stroke="%2364748b" stroke-width="1.5"><rect width="18" height="18" x="3" y="3" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21"/></svg>'
+  );
+
+  images.forEach(img => {
+    const status = img.hasAlt && !img.altEmpty
+      ? 'ok'
+      : img.altEmpty
+        ? 'empty'
+        : 'missing';
+
+    const badgeLabel = status === 'ok'
+      ? 'OK'
+      : status === 'empty'
+        ? 'alt 空'
+        : 'alt なし';
+
+    const altValue = status === 'ok'
+      ? escapeHTML(img.alt)
+      : status === 'empty'
+        ? '（空の alt — 装飾画像以外は説明を入れてください）'
+        : '（alt 属性がありません）';
+
+    const dims = img.width && img.height
+      ? `${img.width} × ${img.height}`
+      : '';
+
+    const card = document.createElement('article');
+    card.className = `img-audit-card is-${status}`;
+
+    const cleanSrc = escapeHTML(img.src);
+    card.innerHTML = `
+      <div class="img-audit-media">
+        <img src="${cleanSrc}" alt="" loading="lazy" decoding="async" onerror="this.onerror=null;this.src='data:image/svg+xml,${placeholderSvg}'">
+        <span class="img-audit-badge is-${status}">${badgeLabel}</span>
+      </div>
+      <div class="img-audit-body">
+        <p class="img-audit-alt-label">代替テキスト</p>
+        <p class="img-audit-alt-value is-${status}">${altValue}</p>
+        <div class="img-audit-meta">
+          ${dims ? `<span class="img-audit-dims">${dims}px</span>` : ''}
+          <span class="img-audit-src" title="${cleanSrc}">${cleanSrc}</span>
+        </div>
+      </div>
+    `;
+    imageAuditList.appendChild(card);
+  });
 }
 
 function escapeHTML(str) {
@@ -5893,51 +7205,440 @@ function escapeHTML(str) {
 // Consolidated Console Log Rendering
 // -------------------------------------------------------------
 
-function renderConsoleLogs() {
-  consoleLogsContainer.innerHTML = '';
+function getConsoleLevelName(level) {
+  if (level === 1) return 'WARN';
+  if (level === 2) return 'ERROR';
+  return 'LOG';
+}
 
-  const showInfo = logFilterInfo.checked;
-  const showWarn = logFilterWarn.checked;
-  const showError = logFilterError.checked;
+function getConsoleLogCounts(logs = consoleLogs) {
+  const counts = { info: 0, warn: 0, error: 0 };
+  logs.forEach(log => {
+    if (log.level === 0) counts.info += 1;
+    else if (log.level === 1) counts.warn += 1;
+    else if (log.level === 2) counts.error += 1;
+  });
+  return counts;
+}
 
-  const filteredLogs = consoleLogs.filter(log => {
+function getConsoleFilteredLogs() {
+  const showInfo = logFilterInfo?.checked ?? true;
+  const showWarn = logFilterWarn?.checked ?? true;
+  const showError = logFilterError?.checked ?? true;
+  const frameId = consoleFrameSelect?.value ? Number(consoleFrameSelect.value) : null;
+
+  return consoleLogs.filter(log => {
     if (log.level === 0 && !showInfo) return false;
     if (log.level === 1 && !showWarn) return false;
     if (log.level === 2 && !showError) return false;
+    if (frameId && log.vpId !== frameId) return false;
+    if (consoleSearchQuery && !log.message.toLowerCase().includes(consoleSearchQuery)) return false;
     return true;
   });
+}
 
-  // Update badge counter
-  consoleBadge.innerText = filteredLogs.length;
-  consoleBadge.style.display = filteredLogs.length > 0 ? '' : 'none';
+function renderConsoleFrameSelect() {
+  if (!consoleFrameSelect) return;
+  const tab = getActiveTab();
+  const previous = consoleFrameSelect.value;
+
+  if (!tab?.viewports?.length) {
+    consoleFrameSelect.innerHTML = '<option value="">全フレーム</option>';
+    consoleFrameSelect.disabled = true;
+    return;
+  }
+
+  consoleFrameSelect.disabled = false;
+  consoleFrameSelect.innerHTML = '<option value="">全フレーム</option>' + tab.viewports.map(vp => {
+    return `<option value="${vp.id}">${escapeHTML(vp.name)} (${vp.width}px)</option>`;
+  }).join('');
+
+  if (previous && tab.viewports.some(vp => String(vp.id) === previous)) {
+    consoleFrameSelect.value = previous;
+  }
+}
+
+function updateConsoleModeBadge(filteredLogs) {
+  if (!consoleModeBadge) return;
+  const errorCount = consoleLogs.filter(log => log.level === 2).length;
+  const badgeCount = errorCount || filteredLogs.length;
+
+  if (badgeCount === 0) {
+    consoleModeBadge.hidden = true;
+    consoleModeBadge.classList.remove('is-error');
+    return;
+  }
+
+  consoleModeBadge.textContent = String(badgeCount);
+  consoleModeBadge.hidden = false;
+  consoleModeBadge.classList.toggle('is-error', errorCount > 0);
+}
+
+function renderConsoleSummary(filteredLogs) {
+  if (!consoleSummary) return;
+
+  const counts = getConsoleLogCounts();
+  consoleSummary.innerHTML = '';
+
+  const pills = [
+    { label: '表示', value: filteredLogs.length, className: 'console-summary-pill' },
+    { label: '合計', value: consoleLogs.length, className: 'console-summary-pill' },
+    { label: '情報', value: counts.info, className: 'console-summary-pill is-info' },
+    { label: '警告', value: counts.warn, className: `console-summary-pill${counts.warn ? ' is-warning' : ''}` },
+    { label: 'エラー', value: counts.error, className: `console-summary-pill${counts.error ? ' is-error' : ''}` },
+  ];
+
+  pills.forEach(pill => {
+    const el = document.createElement('span');
+    el.className = pill.className;
+    el.textContent = `${pill.label} ${pill.value}`;
+    consoleSummary.appendChild(el);
+  });
+}
+
+function copyConsoleLogsToClipboard() {
+  const logs = getConsoleFilteredLogs();
+  if (!logs.length) {
+    showToast('コピーするログがありません', 'warning');
+    return;
+  }
+
+  const text = logs.map(log =>
+    `[${log.time}] [${getConsoleLevelName(log.level)}] ${log.source}: ${log.message}`
+  ).join('\n');
+  copyToClipboard(text, `${logs.length} 件のログをコピーしました`);
+}
+
+function renderConsoleLogs() {
+  if (!consoleLogsContainer) return;
+
+  const filteredLogs = getConsoleFilteredLogs();
+  renderConsoleSummary(filteredLogs);
+  updateConsoleModeBadge(filteredLogs);
+
+  if (consoleTruncateNotice) {
+    consoleTruncateNotice.hidden = consoleLogs.length < CONSOLE_LOG_CAP;
+  }
+
+  consoleLogsContainer.innerHTML = '';
+
+  if (consoleLogs.length === 0) {
+    consoleLogsContainer.innerHTML = '<div class="console-empty">まだログはありません。ページを操作するとここに表示されます。</div>';
+    return;
+  }
 
   if (filteredLogs.length === 0) {
-    consoleLogsContainer.innerHTML = '<div class="console-empty">表示可能なログはありません。</div>';
+    consoleLogsContainer.innerHTML = '<div class="console-empty">フィルターに一致するログがありません。</div>';
     return;
   }
 
   filteredLogs.forEach(log => {
     const entry = document.createElement('div');
     entry.className = `log-entry level-${log.level}`;
-    
-    let levelName = 'LOG';
-    if (log.level === 1) levelName = 'WARN';
-    if (log.level === 2) levelName = 'ERROR';
 
-    entry.innerHTML = `
-      <div class="log-meta">
-        <span class="log-badge">${log.source}</span>
-        <span class="log-time">[${log.time}]</span>
-        <span class="log-level">${levelName}</span>
-      </div>
-      <div class="log-msg">${escapeHTML(log.message)}</div>
-    `;
+    const meta = document.createElement('div');
+    meta.className = 'log-meta';
 
+    const badge = document.createElement('button');
+    badge.type = 'button';
+    badge.className = 'log-badge log-badge-btn';
+    badge.textContent = log.source;
+    badge.title = 'このフレームを選択';
+    badge.addEventListener('click', () => {
+      if (log.vpId) {
+        selectViewport(log.vpId);
+        if (consoleFrameSelect) consoleFrameSelect.value = String(log.vpId);
+        renderConsoleLogs();
+      }
+    });
+
+    const time = document.createElement('span');
+    time.className = 'log-time';
+    time.textContent = `[${log.time}]`;
+
+    const level = document.createElement('span');
+    level.className = 'log-level';
+    level.textContent = getConsoleLevelName(log.level);
+
+    meta.append(badge, time, level);
+
+    const msg = document.createElement('div');
+    msg.className = 'log-msg';
+    msg.textContent = log.message;
+    msg.title = 'クリックでコピー';
+    msg.addEventListener('click', () => {
+      copyToClipboard(log.message, 'ログメッセージをコピーしました');
+    });
+
+    entry.append(meta, msg);
     consoleLogsContainer.appendChild(entry);
   });
 
-  // Scroll to bottom of logs on new inputs
-  consoleLogsContainer.scrollTop = consoleLogsContainer.scrollHeight;
+  const shouldAutoScroll = consoleAutoScroll?.checked !== false && !consoleUserScrolledUp;
+  if (shouldAutoScroll) {
+    consoleLogsContainer.scrollTop = consoleLogsContainer.scrollHeight;
+  }
+}
+
+// -------------------------------------------------------------
+// Flow mode — journey recording
+// -------------------------------------------------------------
+
+function updateFlowChrome(tab = getActiveTab()) {
+  const workspaceGrid = document.getElementById('workspace-grid');
+  const isFlow = isFlowTab(tab) && tab?.id === activeBrowserTabId;
+  workspaceGrid?.classList.toggle('flow-board-active', isFlow);
+  btnToggleSync?.classList.toggle('disabled', isFlow);
+  if (isFlow && syncEnabled) {
+    syncEnabled = false;
+    btnToggleSync?.classList.remove('active');
+  }
+}
+
+function syncFlowModeForTab(tab = getActiveTab()) {
+  applySyncCaptureToTab(tab);
+  updateFlowChrome(tab);
+}
+
+function getFlowShellAnchor(tab, vp, side = 'right') {
+  const headerH = getViewportChromeHeight(vp);
+  const x = side === 'right' ? vp.x + vp.width : vp.x;
+  const y = vp.y + headerH + vp.height / 2;
+  return { x, y };
+}
+
+function ensureFlowEdgesLayer(tab) {
+  const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+  if (!canvas) return null;
+  let layer = canvas.querySelector('.flow-edges-layer');
+  if (!layer) {
+    layer = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    layer.classList.add('flow-edges-layer');
+    layer.setAttribute('aria-hidden', 'true');
+    canvas.insertBefore(layer, canvas.firstChild);
+  }
+  return layer;
+}
+
+function renderFlowEdges(tab) {
+  if (!isFlowTab(tab) || !tab.flow?.edges?.length) {
+    const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+    canvas?.querySelector('.flow-edges-layer')?.replaceChildren();
+    return;
+  }
+
+  const layer = ensureFlowEdgesLayer(tab);
+  if (!layer) return;
+
+  const bounds = getCanvasContentBounds(tab);
+  layer.setAttribute('viewBox', `0 0 ${bounds.width} ${bounds.height}`);
+  layer.style.width = `${bounds.width}px`;
+  layer.style.height = `${bounds.height}px`;
+  layer.replaceChildren();
+
+  tab.flow.edges.forEach(edge => {
+    const fromVp = tab.viewports.find(vp => vp.flowNodeId === edge.from);
+    const toVp = tab.viewports.find(vp => vp.flowNodeId === edge.to);
+    if (!fromVp || !toVp) return;
+
+    const from = getFlowShellAnchor(tab, fromVp, 'right');
+    const to = getFlowShellAnchor(tab, toVp, 'left');
+    const dx = Math.max(48, (to.x - from.x) * 0.45);
+
+    const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+    path.setAttribute('class', 'flow-edge-path');
+    path.setAttribute('d', `M ${from.x} ${from.y} C ${from.x + dx} ${from.y}, ${to.x - dx} ${to.y}, ${to.x} ${to.y}`);
+    layer.appendChild(path);
+
+    const arrow = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    arrow.setAttribute('fill', 'var(--accent)');
+    arrow.setAttribute('opacity', '0.85');
+    arrow.setAttribute('points', `${to.x},${to.y} ${to.x - 8},${to.y - 4} ${to.x - 8},${to.y + 4}`);
+    layer.appendChild(arrow);
+
+    if (edge.label) {
+      const midX = (from.x + to.x) / 2;
+      const midY = (from.y + to.y) / 2 - 10;
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('class', 'flow-edge-label-bg');
+      bg.setAttribute('x', String(midX - 40));
+      bg.setAttribute('y', String(midY - 10));
+      bg.setAttribute('width', '80');
+      bg.setAttribute('height', '18');
+      bg.setAttribute('rx', '6');
+      layer.appendChild(bg);
+
+      const label = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      label.setAttribute('class', 'flow-edge-label');
+      label.setAttribute('x', String(midX));
+      label.setAttribute('y', String(midY + 3));
+      label.setAttribute('text-anchor', 'middle');
+      label.textContent = edge.label.slice(0, 24);
+      layer.appendChild(label);
+    }
+  });
+}
+
+function buildFlowFrozenHeader(vp, tab) {
+  const header = document.createElement('div');
+  header.className = 'viewport-header frame-bar';
+  const title = vp.flowTitle || tabTitleFromUrl(vp.flowUrl || tab.url);
+  header.innerHTML = `
+    <div class="vp-drag-handle" title="ドラッグして移動">
+      <span class="flow-frozen-chip">固定</span>
+      <span class="vp-name">${escapeHTML(title)}</span>
+      <span class="vp-size">${vp.width} × ${vp.height} px</span>
+    </div>
+  `;
+  return header;
+}
+
+function renderFlowFrozenViewport(vp, tab, canvas) {
+  const uid = `${tab.id}-${vp.id}`;
+  const card = document.createElement('div');
+  card.className = 'viewport-card';
+  card.id = `vp-card-${uid}`;
+  card.style.width = `${vp.width}px`;
+
+  const header = buildFlowFrozenHeader(vp, tab);
+
+  const wrapper = document.createElement('div');
+  wrapper.className = 'webview-wrapper';
+  wrapper.id = `wv-wrapper-${uid}`;
+  wrapper.style.width = `${vp.width}px`;
+  wrapper.style.height = `${vp.height}px`;
+
+  const img = document.createElement('img');
+  img.className = 'flow-snapshot-img';
+  img.src = vp.flowScreenshot || '';
+  img.alt = vp.flowUrl || tab.url;
+  wrapper.appendChild(img);
+
+  card.appendChild(wrapper);
+  card.appendChild(header);
+
+  const shell = document.createElement('div');
+  shell.className = 'viewport-frame-shell flow-frozen';
+  shell.id = `vp-shell-${uid}`;
+  shell.dataset.vpId = String(vp.id);
+  shell.style.left = `${vp.x}px`;
+  shell.style.top = `${vp.y}px`;
+  shell.appendChild(card);
+  bindFrameShellSelection(shell);
+  const dragHandle = header.querySelector('.vp-drag-handle');
+  if (dragHandle) bindFrameHeaderDrag(dragHandle, vp);
+  canvas.appendChild(shell);
+  syncViewportFrame(vp, tab);
+}
+
+function freezeViewportShell(tab, vp, dataUrl) {
+  const uid = `${tab.id}-${vp.id}`;
+  const shell = document.getElementById(`vp-shell-${uid}`);
+  const webview = document.getElementById(`wv-${uid}`);
+  const wrapper = document.getElementById(`wv-wrapper-${uid}`);
+  if (!shell || !wrapper) return;
+
+  vp.flowFrozen = true;
+  vp.flowScreenshot = dataUrl;
+  vp.webContentsId = undefined;
+
+  shell.classList.add('flow-frozen');
+  webview?.remove();
+
+  wrapper.querySelector('.vp-loading')?.remove();
+  wrapper.querySelector('.vp-error-banner')?.remove();
+  wrapper.querySelector('.frame-select-shield')?.remove();
+
+  let img = wrapper.querySelector('.flow-snapshot-img');
+  if (!img) {
+    img = document.createElement('img');
+    img.className = 'flow-snapshot-img';
+    wrapper.insertBefore(img, wrapper.firstChild);
+  }
+  img.src = dataUrl;
+  img.alt = vp.flowUrl || tab.url;
+
+  const header = shell.querySelector('.viewport-header');
+  if (header) {
+    header.innerHTML = buildFlowFrozenHeader(vp, tab).innerHTML;
+    const dragHandle = header.querySelector('.vp-drag-handle');
+    if (dragHandle) bindFrameHeaderDrag(dragHandle, vp);
+  }
+}
+
+async function handleFlowNavigate(tab, vp, { href, text }) {
+  if (!isFlowTab(tab) || vp.flowFrozen || !href) return;
+  if (!vp.webContentsId) {
+    showToast('ページの読み込み完了を待ってください');
+    return;
+  }
+
+  const normalizedHref = resolveNavigationUrl(href);
+  const fromNodeId = vp.flowNodeId || `flow-node-${vp.id}`;
+  vp.flowNodeId = fromNodeId;
+  vp.flowUrl = tab.url;
+  vp.flowTitle = tab.title;
+
+  const capture = await window.electronAPI.captureWebviewData(vp.webContentsId);
+  if (!capture?.success || !capture.dataUrl) {
+    showToast('スクリーンショットの取得に失敗しました', 'error');
+    return;
+  }
+
+  if (!tab.flow) tab.flow = { nodes: [], edges: [] };
+  if (!tab.flow.nodes.some(node => node.id === fromNodeId)) {
+    tab.flow.nodes.push({
+      id: fromNodeId,
+      vpId: vp.id,
+      url: vp.flowUrl,
+      title: vp.flowTitle,
+      screenshot: capture.dataUrl,
+    });
+  }
+
+  freezeViewportShell(tab, vp, capture.dataUrl);
+
+  const stepIndex = tab.viewports.filter(v => v.flowFrozen).length + 1;
+  const newId = ++viewportIdCounter;
+  const newVp = {
+    id: newId,
+    name: `Step ${stepIndex}`,
+    width: vp.width,
+    height: vp.height,
+    x: vp.x + vp.width + FLOW_FRAME_GAP,
+    y: vp.y,
+    ua: vp.ua || '',
+    flowNodeId: `flow-node-${newId}`,
+  };
+
+  tab.flow.edges.push({
+    from: fromNodeId,
+    to: newVp.flowNodeId,
+    label: text || '',
+    href: normalizedHref,
+  });
+
+  tab.viewports.push(newVp);
+  viewports = tab.viewports;
+
+  tab.url = normalizedHref;
+  currentURL = normalizedHref;
+  urlInput.value = normalizedHref;
+  setTabFavicon(tab, null);
+  tab.title = tabTitleFromUrl(normalizedHref);
+
+  const canvas = document.getElementById(`workspace-canvas-${tab.id}`);
+  renderViewport(newVp, tab, canvas, { initialUrl: normalizedHref });
+  selectViewport(newVp.id);
+
+  renderFlowEdges(tab);
+  updateCanvasSurface(tab);
+  renderLayersPanel();
+  renderBrowserTabs();
+  saveActiveTabState();
+  syncFlowModeForTab(tab);
+  if (zoomToFitOnOpen) requestAnimationFrame(() => zoomToFitAll());
+  showToast(`導線を記録: ${tabTitleFromUrl(normalizedHref)}`);
 }
 
 // -------------------------------------------------------------
