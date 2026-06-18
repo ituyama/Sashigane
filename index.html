@@ -334,14 +334,6 @@
           <!-- Browser tab panels populated by renderer.js -->
         </div>
         <div class="canvas-footer">
-          <div class="breakpoint-ruler-container canvas-footer-ruler">
-            <div class="ruler-label" data-tip="ブレークポイント" aria-label="ブレークポイント">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 20V4"/><path d="M4 12h12"/><path d="m14 8 4 4-4 4"/></svg>
-            </div>
-            <div id="breakpoint-ruler" class="breakpoint-ruler">
-              <div class="ruler-helper-text">メディアクエリはまだ検出されていません</div>
-            </div>
-          </div>
           <div class="canvas-toolbar">
             <div class="tool-widget" role="toolbar" aria-label="キャンバスツール">
               <button id="btn-tool-select" type="button" class="tool-btn active" data-tool="select" title="移動ツール (V)">
@@ -358,6 +350,15 @@
                 <div id="add-viewport-menu" class="viewport-menu" role="menu" hidden></div>
               </div>
             </div>
+            <div class="tool-divider" aria-hidden="true"></div>
+            <div class="breakpoint-menu-wrap">
+              <button id="btn-breakpoint-menu" type="button" class="breakpoint-trigger" title="ブレークポイント" aria-expanded="false" aria-haspopup="menu" disabled>
+                <span id="breakpoint-current" class="breakpoint-current">—</span>
+                <svg class="breakpoint-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+              </button>
+              <div id="breakpoint-menu" class="breakpoint-menu" role="menu" hidden></div>
+            </div>
+            <div class="tool-divider" aria-hidden="true"></div>
             <div class="zoom-widget">
               <button id="btn-zoom-out" class="zoom-btn" title="ズームアウト">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="5" x2="19" y1="12" y2="12"/></svg>

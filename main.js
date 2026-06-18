@@ -6,6 +6,8 @@ const { spawn } = require('child_process');
 let mainWindow = null;
 let isQuitting = false;
 let hapticBinaryPath = null;
+let hapticLastTrigger = 0;
+const HAPTIC_THROTTLE_MS = 48;
 
 function getHapticBinaryPath() {
   if (hapticBinaryPath) return hapticBinaryPath;
@@ -29,6 +31,10 @@ function getHapticBinaryPath() {
 function performHaptic(pattern = 'alignment') {
   if (process.platform !== 'darwin') return false;
 
+  const now = Date.now();
+  if (now - hapticLastTrigger < HAPTIC_THROTTLE_MS) return false;
+  hapticLastTrigger = now;
+
   const binary = getHapticBinaryPath();
   if (!binary) return false;
 
@@ -36,6 +42,7 @@ function performHaptic(pattern = 'alignment') {
     const child = spawn(binary, [], { stdio: ['pipe', 'ignore', 'ignore'] });
     child.stdin.write(`${pattern}\n`);
     child.stdin.end();
+    child.unref();
     return true;
   } catch {
     return false;

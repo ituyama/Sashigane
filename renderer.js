@@ -57,7 +57,9 @@ const btnArrangeRow = document.getElementById('btn-arrange-row');
 const homeRecentSection = document.getElementById('home-recent-section');
 const homeRecentGrid = document.getElementById('home-recent-grid');
 const homeRecentEmpty = document.getElementById('home-recent-empty');
-const breakpointRuler = document.getElementById('breakpoint-ruler');
+const btnBreakpointMenu = document.getElementById('btn-breakpoint-menu');
+const breakpointMenu = document.getElementById('breakpoint-menu');
+const breakpointCurrent = document.getElementById('breakpoint-current');
 
 // Sidebar — frame properties only
 const btnVisionMenu = document.getElementById('btn-vision-menu');
@@ -200,6 +202,8 @@ let frameDragPointerX = 0;
 let frameDragPointerY = 0;
 let canvasTransformRaf = null;
 let transformSaveTimer = null;
+let lastCanvasHeaderDensityKey = null;
+let lastSnapGuidesKey = '';
 let zoomInertiaLogVel = 0;
 let zoomInertiaAnchor = null;
 let zoomInertiaRaf = null;
@@ -1186,6 +1190,8 @@ function enterHomeScreen({ persist = true } = {}) {
   renderPropertiesPanel();
   renderInspectorPanel();
   updateHomeScreenState();
+  closeBreakpointMenu();
+  updateBreakpointTrigger();
 
   if (persist) persistWorkspaceNow().catch(() => {});
 }
@@ -1463,7 +1469,10 @@ function applyCanvasTransform() {
   if (zoomValueLabel) {
     zoomValueLabel.innerText = `${Math.round(workspaceZoom * 100)}%`;
   }
-  updateFrameHeaderDensity();
+  if (lastCanvasHeaderDensityKey !== `${getActiveTab()?.id ?? ''}:${workspaceZoom}`) {
+    lastCanvasHeaderDensityKey = `${getActiveTab()?.id ?? ''}:${workspaceZoom}`;
+    updateFrameHeaderDensity();
+  }
 }
 
 function updateFrameHeaderDensity() {
@@ -1489,7 +1498,7 @@ function scheduleCanvasTransform() {
     transformSaveTimer = setTimeout(() => {
       transformSaveTimer = null;
       saveActiveTabState();
-    }, 400);
+    }, 800);
   });
 }
 
@@ -1737,6 +1746,10 @@ function renderSnapGuides(tab, guides, draggedVp) {
   const layer = ensureSnapGuidesLayer(tab);
   if (!layer) return;
 
+  const guideKey = `${guides?.x ?? ''}:${guides?.y ?? ''}`;
+  if (guideKey === lastSnapGuidesKey) return;
+  lastSnapGuidesKey = guideKey;
+
   layer.replaceChildren();
   if (!guides || (guides.x == null && guides.y == null)) return;
 
@@ -1764,6 +1777,7 @@ function renderSnapGuides(tab, guides, draggedVp) {
 
 function clearSnapGuides(tab = getActiveTab()) {
   if (!tab) return;
+  lastSnapGuidesKey = '';
   document.querySelector(`#workspace-canvas-${tab.id} .snap-guides-layer`)?.replaceChildren();
 }
 
@@ -1920,7 +1934,6 @@ function flushFrameDrag() {
   vp.y = snapResult.y;
   updateFrameSnapFeedback(tab, vp, snapResult);
   syncViewportFrame(vp, tab);
-  if (isFlowTab(tab)) renderFlowEdges(tab);
 }
 
 function scheduleFrameDragUpdate() {
@@ -1956,6 +1969,10 @@ function flushFrameResize() {
     notifyBreakpointCrossings(vp.id, prevWidth, next.w);
   }
   syncViewportFrame(vp, tab);
+  applyViewportDeviceEmulation(vp);
+  updatePropertiesPanelSize(vp);
+  updateCanvasSurface(tab);
+  scheduleLayoutAuditRefresh(vp, tab);
 }
 
 function scheduleFrameResizeUpdate() {
@@ -2014,11 +2031,13 @@ function endFrameDrag() {
     frameDragRaf = null;
   }
 
-  if (tab) updateCanvasSurface(tab);
+  if (tab) {
+    updateCanvasSurface(tab);
+    if (isFlowTab(tab)) renderFlowEdges(tab);
+  }
   renderPropertiesPanel();
   renderLayersPanel();
   commitCanvasTransform();
-  saveActiveTabState();
   persistWorkspaceNow().catch(() => {});
 }
 
@@ -2047,10 +2066,6 @@ function endFrameResize(e) {
       applyViewportUserAgent(vp, tab, { reload: false });
     }
     applyViewportSize(vp, tab);
-    if (vp.webContentsId) {
-      window.electronAPI.setDeviceEmulation(vp.webContentsId, vp.width, vp.height);
-    }
-    updateCanvasSurface(tab);
     renderPropertiesPanel();
     renderLayersPanel();
     saveActiveTabState();
@@ -3930,8 +3945,8 @@ function reloadViewport(vp, tab = getActiveTab()) {
   if (webview) webview.reload();
 }
 
-function serializeWorkspace() {
-  saveActiveTabState();
+function serializeWorkspace({ includeFlowScreenshots = true } = {}) {
+  persistActiveTabFields();
 
   return {
     version: 2,
@@ -3963,7 +3978,7 @@ function serializeWorkspace() {
         flowNodeId: vp.flowNodeId || null,
         flowUrl: vp.flowUrl || null,
         flowTitle: vp.flowTitle || null,
-        flowScreenshot: vp.flowScreenshot || null,
+        flowScreenshot: includeFlowScreenshots ? (vp.flowScreenshot || null) : null,
       })),
     })),
   };
@@ -3973,12 +3988,12 @@ function scheduleWorkspacePersist() {
   if (workspacePersistTimer) clearTimeout(workspacePersistTimer);
   workspacePersistTimer = setTimeout(() => {
     workspacePersistTimer = null;
-    persistWorkspaceToStorage();
-  }, 800);
+    persistWorkspaceToStorage({ includeFlowScreenshots: false });
+  }, 2000);
 }
 
-function persistWorkspaceToStorage() {
-  const json = JSON.stringify(serializeWorkspace());
+function persistWorkspaceToStorage({ includeFlowScreenshots = true } = {}) {
+  const json = JSON.stringify(serializeWorkspace({ includeFlowScreenshots }));
   try {
     localStorage.setItem(WORKSPACE_STORAGE_KEY, json);
   } catch (error) {
@@ -4000,7 +4015,7 @@ async function persistWorkspaceNow() {
     clearTimeout(workspacePersistTimer);
     workspacePersistTimer = null;
   }
-  await persistWorkspaceToStorage();
+  await persistWorkspaceToStorage({ includeFlowScreenshots: true });
 }
 
 async function readPersistedWorkspaceRaw() {
@@ -4589,7 +4604,7 @@ function getActiveCanvas() {
   return document.getElementById(`workspace-canvas-${activeBrowserTabId}`);
 }
 
-function saveActiveTabState() {
+function persistActiveTabFields() {
   const tab = getActiveTab();
   if (!tab) return;
 
@@ -4600,8 +4615,12 @@ function saveActiveTabState() {
   tab.panY = panY;
   tab.workspaceZoom = workspaceZoom;
   tab.selectedViewportId = selectedViewportId;
+}
+
+function saveActiveTabState({ schedulePersist = true } = {}) {
+  persistActiveTabFields();
   saveLastLayout();
-  scheduleWorkspacePersist();
+  if (schedulePersist) scheduleWorkspacePersist();
 }
 
 function ensureActiveTabViewportsLinked() {
@@ -4852,6 +4871,8 @@ function selectViewport(vpId) {
   if (workspaceMode === 'console') renderConsoleFrameSelect();
   if (inspectModeActive) setInspectMode(true);
   if (vpId !== null) activateDesignTab();
+  closeBreakpointMenu();
+  updateBreakpointMenuActiveStates();
 }
 
 function clearViewportSelection() {
@@ -4982,6 +5003,24 @@ function applyViewportFromProperties(field, rawValue) {
   saveActiveTabState();
 }
 
+function applyViewportDeviceEmulation(vp) {
+  if (!vp?.webContentsId) return;
+  const sizeKey = `${vp.width}:${vp.height}`;
+  if (vp._deviceEmulationKey === sizeKey) return;
+  vp._deviceEmulationKey = sizeKey;
+  window.electronAPI.setDeviceEmulation(vp.webContentsId, vp.width, vp.height);
+}
+
+function updatePropertiesPanelSize(vp) {
+  if (!propsForm || !vp || vp.id !== selectedViewportId) return;
+  if (propW) propW.value = vp.width;
+  if (propH) propH.value = vp.height;
+  if (propFrameSize) {
+    propFrameSize.textContent = `${vp.width} × ${vp.height}`;
+  }
+  updateBreakpointTrigger();
+}
+
 function applyViewportSize(vp, tab) {
   const uid = `${tab.id}-${vp.id}`;
   const card = document.getElementById(`vp-card-${uid}`);
@@ -5003,7 +5042,7 @@ function applyViewportSize(vp, tab) {
   updateCanvasSurface(tab);
 
   if (vp.webContentsId) {
-    window.electronAPI.setDeviceEmulation(vp.webContentsId, vp.width, vp.height);
+    applyViewportDeviceEmulation(vp);
   }
 
   scheduleLayoutAuditRefresh(vp, tab);
@@ -5192,6 +5231,7 @@ async function init() {
   setupGlobalShortcuts();
   setupViewportMenu();
   setupVisionMenu();
+  setupBreakpointMenu();
   setupPropertiesPanel();
   setupLeftPanelSplit();
   setupPanelWidthResize();
@@ -5219,7 +5259,7 @@ async function init() {
   applySyncCaptureToAllWebviews();
 
   window.addEventListener('beforeunload', () => {
-    persistWorkspaceToStorage();
+    persistWorkspaceToStorage({ includeFlowScreenshots: true });
   });
 
   window.electronAPI?.onBeforeQuit?.(() => {
@@ -5830,6 +5870,8 @@ function setActiveBrowserTab(id) {
   renderConsoleFrameSelect();
   updateFlowChrome(tab);
   syncFlowModeForTab(tab);
+  closeBreakpointMenu();
+  updateBreakpointMenuActiveStates();
   persistWorkspaceNow().catch(() => {});
 }
 
@@ -6261,10 +6303,9 @@ function setupWebviewHooks(webview, vp, tab) {
   // DOM Ready
   webview.addEventListener('dom-ready', () => {
     vp.webContentsId = webview.getWebContentsId();
+    vp._deviceEmulationKey = null;
 
-    window.electronAPI.setDeviceEmulation(
-      vp.webContentsId, vp.width, vp.height
-    );
+    applyViewportDeviceEmulation(vp);
 
     window.electronAPI.setUserAgent(vp.webContentsId, vp.ua || '');
 
@@ -6462,10 +6503,18 @@ function getCrossedBreakpoints(prevWidth, newWidth, breakpoints) {
 }
 
 function flashBreakpointMarkers(bps) {
-  if (!breakpointHapticVisualEnabled || !bps.length || !breakpointRuler) return;
+  if (!breakpointHapticVisualEnabled || !bps.length) return;
+
+  btnBreakpointMenu?.classList.add('is-flash');
+  const triggerKey = 'trigger';
+  if (bpFlashTimers.has(triggerKey)) clearTimeout(bpFlashTimers.get(triggerKey));
+  bpFlashTimers.set(triggerKey, setTimeout(() => {
+    btnBreakpointMenu?.classList.remove('is-flash');
+    bpFlashTimers.delete(triggerKey);
+  }, 400));
 
   bps.forEach(bp => {
-    const marker = breakpointRuler.querySelector(`.bp-marker[data-bp="${bp}"]`);
+    const marker = breakpointMenu?.querySelector(`.breakpoint-menu-item[data-bp="${bp}"]`);
     if (!marker) return;
 
     marker.classList.add('is-flash');
@@ -6496,39 +6545,115 @@ function notifyBreakpointCrossings(vpId, prevWidth, newWidth) {
   flashBreakpointMarkers(crossed);
 }
 
-function updateBreakpointsRuler(breakpoints) {
-  if (!breakpoints || breakpoints.length === 0) return;
+function updateBreakpointTrigger() {
+  const vp = getSelectedViewport();
+  if (!breakpointCurrent || !btnBreakpointMenu) return;
 
-  // Add new breakpoints to global set
-  breakpoints.forEach(bp => allBreakpoints.add(bp));
+  if (!vp) {
+    breakpointCurrent.textContent = '—';
+    btnBreakpointMenu.disabled = true;
+    btnBreakpointMenu.title = 'フレームを選択してください';
+    return;
+  }
 
-  // Render rulers
-  breakpointRuler.innerHTML = '';
-  
+  breakpointCurrent.textContent = String(vp.width);
+  const hasBreakpoints = allBreakpoints.size > 0;
+  btnBreakpointMenu.disabled = !hasBreakpoints;
+  btnBreakpointMenu.title = hasBreakpoints
+    ? `ブレークポイント — 選択中「${vp.name}」${vp.width}px`
+    : `選択中「${vp.name}」— メディアクエリ未検出`;
+}
+
+function updateBreakpointMenuActiveStates() {
+  const vp = getSelectedViewport();
+  breakpointMenu?.querySelectorAll('.breakpoint-menu-item').forEach((btn) => {
+    btn.classList.toggle('is-active', Boolean(vp && Number(btn.dataset.bp) === vp.width));
+  });
+  updateBreakpointTrigger();
+}
+
+function renderBreakpointMenu() {
+  if (!breakpointMenu) return;
+
+  breakpointMenu.innerHTML = '';
+
   if (allBreakpoints.size === 0) {
-    breakpointRuler.innerHTML = '<div class="ruler-helper-text">ロードされたWebページのメディアクエリがここに表示されます</div>';
+    breakpointMenu.innerHTML = '<p class="breakpoint-menu-empty">メディアクエリ未検出</p>';
+    updateBreakpointTrigger();
     return;
   }
 
   const sortedBreakpoints = Array.from(allBreakpoints).sort((a, b) => a - b);
-  sortedBreakpoints.forEach(bp => {
-    const badge = document.createElement('button');
-    badge.type = 'button';
-    badge.className = 'bp-marker';
-    badge.dataset.bp = String(bp);
-    badge.innerHTML = `<span>${bp}px</span>`;
-    badge.title = `幅を ${bp}px にリサイズ`;
-    
-    badge.addEventListener('click', () => {
-      const primaryVp = viewports[0];
-      if (primaryVp) {
-        resizeViewport(primaryVp.id, bp);
-        showToast(`ビューポート「${primaryVp.name}」の幅を ${bp}px にリサイズしました`);
-      }
-    });
+  const vp = getSelectedViewport();
 
-    breakpointRuler.appendChild(badge);
+  sortedBreakpoints.forEach((bp) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'breakpoint-menu-item';
+    item.dataset.bp = String(bp);
+    item.setAttribute('role', 'menuitem');
+    item.textContent = `${bp}px`;
+    if (vp && vp.width === bp) item.classList.add('is-active');
+    item.addEventListener('click', () => {
+      applyBreakpointWidth(bp);
+      closeBreakpointMenu();
+    });
+    breakpointMenu.appendChild(item);
   });
+
+  updateBreakpointTrigger();
+}
+
+function applyBreakpointWidth(bp) {
+  const vp = getSelectedViewport();
+  if (!vp) {
+    showToast('フレームを選択してください');
+    return;
+  }
+  resizeViewport(vp.id, bp);
+  showToast(`「${vp.name}」の幅を ${bp}px に変更しました`);
+}
+
+function toggleBreakpointMenu(forceOpen) {
+  if (!breakpointMenu || !btnBreakpointMenu || btnBreakpointMenu.disabled) return;
+  const willOpen = forceOpen ?? breakpointMenu.hidden;
+  breakpointMenu.hidden = !willOpen;
+  btnBreakpointMenu.setAttribute('aria-expanded', String(willOpen));
+  btnBreakpointMenu.classList.toggle('is-open', willOpen);
+  if (willOpen) updateBreakpointMenuActiveStates();
+}
+
+function closeBreakpointMenu() {
+  if (!breakpointMenu || breakpointMenu.hidden) return;
+  breakpointMenu.hidden = true;
+  btnBreakpointMenu?.setAttribute('aria-expanded', 'false');
+  btnBreakpointMenu?.classList.remove('is-open');
+}
+
+function setupBreakpointMenu() {
+  btnBreakpointMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (btnBreakpointMenu.disabled) return;
+    toggleBreakpointMenu(breakpointMenu.hidden);
+  });
+
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('.breakpoint-menu-wrap')) return;
+    closeBreakpointMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeBreakpointMenu();
+  });
+
+  updateBreakpointTrigger();
+}
+
+function updateBreakpointsRuler(breakpoints) {
+  if (!breakpoints || breakpoints.length === 0) return;
+
+  breakpoints.forEach(bp => allBreakpoints.add(bp));
+  renderBreakpointMenu();
 }
 
 function resizeViewport(vpId, width) {
@@ -6544,6 +6669,7 @@ function resizeViewport(vpId, width) {
   }
   applyViewportSize(vp, tab);
   renderPropertiesPanel();
+  updateBreakpointMenuActiveStates();
 }
 
 // -------------------------------------------------------------
